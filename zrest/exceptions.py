@@ -26,3 +26,7 @@ class DataModelDropError(DataModelError):
 
 class DataModelEditError(DataModelError):
     pass
+
+
+class BlockedFile(Exception):
+    pass
