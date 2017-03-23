@@ -1,6 +1,11 @@
 import shelve
 import json
 
+
+class RestfulData:
+    pass
+
+
 class ModelInterface:
     """Model Interface for Models
 
@@ -21,8 +26,6 @@ class ModelInterface:
     :method edit:
 
     """
-    def __init__(self):
-        pass
 
     def _parse(self, data, _type="application/json"):
         """
@@ -36,12 +39,38 @@ class ModelInterface:
             return json.loads(data)
 
     def _filter(self, filter_string):
-        pass
+        """
+        Filter method to get data
+        :param filter_string:
+        :return: set with ids
+        """
 
-    def fetch(self, item, *args, **kwargs):
+    def fetch(self, filter):
         """
         To be implemented in final models
         :param item:
-        :return:
+        :return: list with data
         """
 
+    def new(self, data):
+        """
+        Set new data to model
+        :param data: data to be
+        :return: statuscode
+        """
+
+    def replace(self, filter, data):
+        """
+        Replaces all filtered data with given data
+        :param filter: filter to be applied to
+        :param data: data to override
+        :return: statuscode
+        """
+
+    def patch(self, filter, data):
+        """
+        Updates all filtered data with given data
+        :param filter: filter to be applied to
+        :param data: data to update
+        :return: statuscode
+        """
