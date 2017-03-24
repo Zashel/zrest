@@ -43,7 +43,7 @@ class ModelBaseInterface:
 
         """
 
-    def patch(self, filter, data):
+    def edit(self, filter, data):
         """
         Updates all filtered data with given data
         :param filter: filter to be applied to
@@ -75,10 +75,10 @@ class RestfulBaseInterface(ModelBaseInterface):
     :method patch:
 
     """
-    def _filter(self, filter_string):
+    def _filter(self, filter):
         """
         Filter method to get data
-        :param filter_string:
+        :param filter: filter dictionary
         :return: set with ids
 
         """
@@ -114,7 +114,7 @@ class RestfulBaseInterface(ModelBaseInterface):
     def get(self, filter, _type="application/json"):
         """
         For GET methods
-        :param filter: Stringfilter to filter data
+        :param filter: dictionary
         :param _type:
         :return: data
 
@@ -138,7 +138,7 @@ class RestfulBaseInterface(ModelBaseInterface):
     def put(self, filter, data, _type="application/json"):
         """
         For PUT methods
-        :param filter:  Filter to data
+        :param filter:  Filter dictionary to data
         :param data: data to update
         :param _type: type of given data
         :return: HTTP204 if updated
@@ -154,7 +154,7 @@ class RestfulBaseInterface(ModelBaseInterface):
     def delete(self, filter):
         """
         For DELETE methods
-        :param filter: Filter to delete
+        :param filter: Filter dictionary to delete
         :return: HTTP204 if removed
         :raises: HTTPResponseError
 
@@ -168,7 +168,7 @@ class RestfulBaseInterface(ModelBaseInterface):
     def patch(self, filter, data, _type="application/json"):
        """
        For PATCH methods
-       :param filter: filter to update
+       :param filter: filter dictionary to update
        :param data: data to update to filter
        :param _type: type of given data
        :return: HTTP204 if patched
