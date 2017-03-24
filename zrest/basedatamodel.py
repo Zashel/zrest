@@ -119,7 +119,7 @@ class RestfulBaseInterface(ModelBaseInterface):
         :return: data
 
         """
-        return self._return(self.fetch(self._filter(filter)), _type)
+        return self._return(self.fetch(self._parse(filter, _type)), _type)
 
     def post(self, data, _type="application/json"):
         """
@@ -146,7 +146,7 @@ class RestfulBaseInterface(ModelBaseInterface):
 
         """
         try:
-            self.replace(filter, self._parse(data, _type))
+            self.replace(self._parse(filter, _type), self._parse(data, _type))
             return HTTP204
         except DataModelReplaceError as e:
             raise HTTPResponseError(get_code(e.code))
