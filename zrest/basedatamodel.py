@@ -116,10 +116,13 @@ class RestfulBaseInterface(ModelBaseInterface):
         For GET methods
         :param filter: dictionary
         :param _type:
-        :return: data
+        :return: data or HTTP204 in case of no data
 
         """
-        return self._return(self.fetch(self._parse(filter, _type)), _type)
+        data = self._return(self.fetch(self._parse(filter, _type)), _type)
+        if data == "[]":
+            data = HTTP204
+        return data
 
     def post(self, data, _type="application/json"):
         """
@@ -151,7 +154,7 @@ class RestfulBaseInterface(ModelBaseInterface):
         except DataModelReplaceError as e:
             raise HTTPResponseError(get_code(e.code))
 
-    def delete(self, filter):
+    def delete(self, filter, _type="application/json"):
         """
         For DELETE methods
         :param filter: Filter dictionary to delete
@@ -160,7 +163,7 @@ class RestfulBaseInterface(ModelBaseInterface):
 
         """
         try:
-            self.drop(filter)
+            self.drop(self._parse(filter, _type))
             return HTTP204
         except DataModelDropError as e:
             raise HTTPResponseError(get_code(e.code))
@@ -176,7 +179,7 @@ class RestfulBaseInterface(ModelBaseInterface):
 
        """
        try:
-           self.edit(filter, self._parse(data, _type))
+           self.edit(self._parse(filter, _type), self._parse(data, _type))
            return HTTP204
        except DataModelEditError as e:
            raise HTTPResponseError(get_code(e.code))

@@ -3,6 +3,7 @@ import os
 import datetime
 import time
 import uuid
+import glob
 
 from multiprocessing import Pipe
 from zashel.utils import threadize
@@ -12,18 +13,17 @@ from zrest.exceptions import *
 
 class ShelveModel(RestfulBaseInterface):
 
-    def __init__(self, filepath, groups=10, *, index_fields=None, name="db"):
+    def __init__(self, filepath, groups=10, *, index_fields=None):
         try:
             assert os.path.exists(filepath)
         except AssertionError:
             os.makedirs(filepath)
-        self.uuid = str(uuid.uuid1())
+        self.uuid = str(uuid.uuid4())
         self._groups = groups
         self._filepath = filepath
         self._alive = False
         self._opened = True
-        self._pipe_in, self._pipe_out = Pipe()
-        self._name = name
+        self._pipe_in, self._pipe_out = Pipe(False)
         self._close = False
         if index_fields is None:
             self._index_fields = list()
@@ -37,6 +37,7 @@ class ShelveModel(RestfulBaseInterface):
                 shelf["filepath"] = self._meta_path
                 shelf["total"] = int()
                 shelf["next"] = int()
+                shelf["class"] = self.__class__.__name__
             for index in self.index_fields:
                 with shelve.open(self._index_path(index)) as shelf:
                     shelf["filepath"] = self._index_path(index)
@@ -53,8 +54,11 @@ class ShelveModel(RestfulBaseInterface):
         with shelve.open(self._meta_path) as meta:
             return meta["next"]
 
-    def __del__(self):
-        self.close()
+    @property
+    def name(self):
+        with shelve.open(self._meta_path) as shelf:
+            name = shelf["class"]
+        return name
 
     @property
     def index_fields(self):
@@ -77,18 +81,14 @@ class ShelveModel(RestfulBaseInterface):
         return self._filepath
 
     @property
-    def name(self):
-        return self._name
-
-    @property
     def _meta_path(self):
-        return os.path.join(self.filepath, "meta.{}".format(self.name))
+        return os.path.join(self.filepath, "meta")
 
     def _index_path(self, field):
-        return os.path.join(self.filepath, "index_{}.{}".format(field, self.name))
+        return os.path.join(self.filepath, "index_{}".format(field))
 
     def _data_path(self, group):
-        return os.path.join(self.filepath, "data_{}.{}".format(str(group), self.name))
+        return os.path.join(self.filepath, "data_{}".format(str(group)))
 
     def _block(self, file):
         assert file in [self._meta_path, ] + self.indexes_files + self.data_files
@@ -99,14 +99,11 @@ class ShelveModel(RestfulBaseInterface):
             raise BlockedFile
 
     def _unblock(self, file):
-        assert file in [self._meta_path, ] + self.indexes_files + self.data_files
-        filepath = "{}.block".format(file)
-        if os.path.exists(filepath):
-            with open("{}.block".format(file), "r") as block:
-                uuid, date = block.read().strip("\n").split("\t")
-            date = datetime.datetime.strptime(date, "%Y-%m-%d %H:%M:%S")
-            if uuid != self.uuid and date+datetime.timedelta(seconds=5)<datetime.datetime.now():
-                os.remove(filepath)
+        if not self.is_blocked(file):
+            try:
+                os.remove("{}.block".format(file))
+            except FileNotFoundError:
+                pass
 
     def is_blocked(self, file):
         try:
@@ -117,13 +114,16 @@ class ShelveModel(RestfulBaseInterface):
         filepath = "{}.block".format(file)
         if os.path.exists(filepath):
             try:
-                with open("{}.block".format(file), "r") as block:
+                with open(filepath, "r") as block:
                     uuid, date = block.read().strip("\n").split("\t")
                 date = datetime.datetime.strptime(date, "%Y-%m-%d %H:%M:%S")
-                if uuid != self.uuid and date+datetime.timedelta(seconds=5)<datetime.datetime.now():
+                now = datetime.datetime.now()
+                if uuid != self.uuid and date+datetime.timedelta(seconds=10)>now:
                     blocked = True
-            except FileNotFoundError:
+            except (FileNotFoundError, ValueError):
                 pass
+            except BlockedFile:
+                blocked = True
         return blocked
 
 
@@ -143,9 +143,10 @@ class ShelveModel(RestfulBaseInterface):
     @threadize
     def _keep_alive(self, file):
         while self._alive is True:
-            if self.is_blocked(file):
+            if self.is_blocked(file) is True:
                 time.sleep(3)
-                self._block(file)
+                while True:
+                    self._block(file)
         self._unblock(file)
 
     def _send_pipe(self, **kwargs):
@@ -165,12 +166,15 @@ class ShelveModel(RestfulBaseInterface):
         final = list()
         with shelve.open(shelf) as file:
             for item in registries:
-                final.append(file[str(item)])
+                data = file[str(item)]
+                data.update({"_id": item})
+                final.append(data)
         return final
 
     def _set_index(self, data, registry):
         for field in data:
-            if os.path.exists("{}.dat".format(self._index_path(field))):
+            if any([os.path.exists(file) 
+                    for file in glob.glob("{}.*".format(self._index_path(field)))]+[False]):
                 with shelve.open(self._index_path(field)) as shelf:
                     index = str(data[field])
                     if not index in shelf:
@@ -179,14 +183,17 @@ class ShelveModel(RestfulBaseInterface):
 
     def _del_index(self, data, registry):
         for field in data:
-            if os.path.exists("{}.dat".format(self._index_path(field))):
+            if any([os.path.exists(file)
+                    for file in glob.glob("{}.*".format(self._index_path(field)))]+[False]):
                 with shelve.open(self._index_path(field)) as shelf:
                     index = str(data[field])
                     if index in shelf:
                         shelf[index] -= {registry}
 
     def new(self, data):
-        self._send_pipe(action="new", data=data)
+        conn_in, conn_out = Pipe(False)
+        self._send_pipe(action="new", data=data, pipe=conn_out)
+        conn_in.recv()
 
     def _new(self, data, registry, shelf):
         with shelve.open(shelf) as file:
@@ -197,43 +204,58 @@ class ShelveModel(RestfulBaseInterface):
         self._set_index(data, registry)
 
     def replace(self, filter, data):
-        self._send_pipe(action="replace", filter=filter, data=data)
+        conn_in, conn_out = Pipe(False)
+        self._send_pipe(action="replace", filter=filter, data=data, pipe=conn_out)
+        conn_in.recv()
 
     def _replace(self, data, registries, shelf):
         with shelve.open(shelf) as file:
             for reg in registries:
                 old_data = self._fetch({reg}, shelf)[0]
-                new_data = old_data.update(data)
-                self._del_index(old_data, reg)
-                file[str(reg)] = new_data
-                self._set_index(new_data, reg)
+                if old_data != list():
+                    if "_id" in old_data:
+                        del(old_data["_id"])
+                    new_data = old_data.copy()
+                    new_data.update(data)
+                    self._del_index(old_data, reg)
+                    file[str(reg)] = new_data
+                    self._set_index(new_data, reg)
 
     def edit(self, filter, data):
-        self._send_pipe(action="edit", filter=filter, data=data)
+        conn_in, conn_out = Pipe(False)
+        self._send_pipe(action="edit", filter=filter, data=data, pipe=conn_out)
+        conn_in.recv()
 
     def _edit(self, data, registries, shelf):
         self._replace(data, registries, shelf)
 
     def drop(self, filter):
-        self._send_pipe(action="drop", filter=filter)
+        conn_in, conn_out = Pipe(False)
+        self._send_pipe(action="drop", filter=filter, data={}, pipe=conn_out)
+        conn_in.recv()
 
-    def _drop(self, registries, shelf):
+    def _drop(self, data, registries, shelf):
         with shelve.open(shelf) as file:
             for reg in registries:
-                old_data = self._fetch(set(reg), shelf)[0]
-                self._del_index(old_data, reg)
-                del(file[str(reg)])
-            with shelve.open(self._meta_path) as file:
-                file["total"] -= 1
+                old_data = self._fetch({reg}, shelf)
+                if old_data != list():
+                    self._del_index(old_data, reg)
+                    del(file[str(reg)])
+                    with shelve.open(self._meta_path) as file:
+                        file["total"] -= 1
 
     def _filter(self, filter):
         final_set = set(range(0, len(self)))
         for field in filter:
             subfilter = set()
-            if os.path.exists("{}.dat".format(self._index_path(field))):
-                with shelve.open(self._index_path(field), "r") as index:
-                    if str(filter[field]) in index:
-                        subfilter = index[str(filter[field])]
+            if field == "_id":
+                subfilter = {filter["_id"]}
+            else:
+                if any([os.path.exists(file)
+                        for file in glob.glob("{}.*".format(self._index_path(field)))]+[False]):
+                    with shelve.open(self._index_path(field), "r") as index:
+                        if str(filter[field]) in index:
+                            subfilter = index[str(filter[field])]
             final_set &= subfilter
         return final_set
 
@@ -275,12 +297,14 @@ class ShelveModel(RestfulBaseInterface):
                 for filename in filename_reg:
                     self._wait_to_block(filename)
                     self._keep_alive(filename)
-                    for field in data["data"]:
-                        if os.path.exists("{}.dat".format(self._index_path(field))):
+                    for field in self.indexes_files:
+                        if any([os.path.exists(file)
+                                for file in glob.glob("{}.*".format(self._index_path(field)))]+[False]):
                             self._wait_to_block(self._index_path(field))
                             self._keep_alive(self._index_path(field))
                     self.__getattribute__("_{}".format(data["action"]))(data["data"], filename_reg[filename], filename)
                     self._alive = False
+                data["pipe"].send(0)
                 #TODO: Call private methods to write _new, _drop, _edit and _replace
 
     def close(self):

@@ -95,6 +95,8 @@ class ShelveModel_Test(unittest.TestCase):
 
     def test_6_get_empty(self):
         self.assertEqual(ShelveModel_Test.model.get(json.dumps({"_id": 0})), HTTP204)
+        self.assertEqual(ShelveModel_Test.model.put(self.filter1, json.dumps(self.data1)), HTTP204)
+        self.assertEqual(ShelveModel_Test.model.delete(self.filter1), HTTP204)
 
     def test_7_massive_post(self):
         headers = ["a", "b", "c"]
@@ -143,6 +145,7 @@ class ShelveModel_Test(unittest.TestCase):
            conn_in.close()
         self.assertEqual(len(models[0]), 300)
         self.assertEqual(next(models[0]), 301)
+
 
 if __name__ == "__main__":
     unittest.main()
