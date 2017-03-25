@@ -5,7 +5,10 @@ import os
 import json
 import shelve
 import glob
+import random
 
+from multiprocessing import Pipe
+from zashel.utils import daemonize
 from zrest.datamodels.shelvemodels import *
 from zrest.statuscodes import *
 
@@ -42,6 +45,7 @@ class ShelveModel_Test(unittest.TestCase):
                                  "index_b.*",
                                  "data_0.*",
                                  "data_1.*"]]
+        self.assertTrue(ShelveModel_Test.model.name, "ShelveModel")
 
     def test_1_post(self):
         self.assertEqual(ShelveModel_Test.model.post(json.dumps(self.data1)),
@@ -93,7 +97,6 @@ class ShelveModel_Test(unittest.TestCase):
         self.assertEqual(ShelveModel_Test.model.get(json.dumps({"_id": 0})), HTTP204)
 
     def test_7_massive_post(self):
-        import random
         headers = ["a", "b", "c"]
         final = list()
         for x in range(0, 100):
@@ -114,7 +117,32 @@ class ShelveModel_Test(unittest.TestCase):
         time.sleep(11)
         self.assertFalse(ShelveModel_Test.model1.is_blocked(meta))
         ShelveModel_Test.model._unblock(meta)
-     
+
+    def test_9_multiple_asyncronic(self):
+        @daemonize
+        def post(model, data, id, conn):
+            try:
+                conn.send([id, model.post(json.dumps(data))])
+            except BrokenPipeError:
+                pass
+        headers = ["a", "b", "c"]
+        final = list()
+        for x in range(0, 200):
+            final.append(dict(zip(headers, [random.randint(0, 100) for x in range(0, len(headers))])))
+        connections = list()
+        models = [ShelveModel_Test.model, ShelveModel_Test.model1]
+        for index, item in enumerate(final):
+           conn_in, conn_out = Pipe(False)
+           connections.append((index, conn_in, conn_out))
+           post(models[index%2], item, index, conn_out)
+        for index, conn_in, conn_out in connections:
+           data = conn_in.recv()
+           self.assertEqual(data[0], index)
+           self.assertEqual(str(data[1]), str(HTTP201))
+           conn_out.close()
+           conn_in.close()
+        self.assertEqual(len(models[0]), 300)
+        self.assertEqual(next(models[0]), 301)
 
 if __name__ == "__main__":
     unittest.main()
