@@ -13,7 +13,7 @@ from zrest.exceptions import *
 
 class ShelveModel(RestfulBaseInterface):
 
-    def __init__(self, filepath, groups=10, *, index_fields=None):
+    def __init__(self, filepath, groups=10, *, index_fields=None, headers=None):
         try:
             assert os.path.exists(filepath)
         except AssertionError:
@@ -25,6 +25,8 @@ class ShelveModel(RestfulBaseInterface):
         self._opened = True
         self._pipe_in, self._pipe_out = Pipe(False)
         self._close = False
+        self._headers = headers
+        self._headers_checked = False
         if index_fields is None:
             self._index_fields = list()
         else:
@@ -79,6 +81,18 @@ class ShelveModel(RestfulBaseInterface):
     @property
     def filepath(self):
         return self._filepath
+    
+    @property
+    def headers(self):
+        if self._headers is None and self._headers_checked is False:
+            try:
+                with shelve.open(self._data_path(0)) as shelf:
+                    self._headers = shelf["headers"]
+            except KeyError:
+                self._headers = None
+            finally:
+                self._headers_checked = True
+        return self._headers
 
     @property
     def _meta_path(self):
@@ -145,8 +159,7 @@ class ShelveModel(RestfulBaseInterface):
         while self._alive is True:
             if self.is_blocked(file) is True:
                 time.sleep(3)
-                while True:
-                    self._block(file)
+                self._block(file)
         self._unblock(file)
 
     def _send_pipe(self, **kwargs):
@@ -167,8 +180,15 @@ class ShelveModel(RestfulBaseInterface):
         with shelve.open(shelf) as file:
             for item in registries:
                 data = file[str(item)]
-                data.update({"_id": item})
-                final.append(data)
+                if isinstance(data, list) and self.headers is not None:
+                    if data is not None and len(data)==len(self.headers):
+                        data = dict(zip(self.headers, data))
+                    else:
+                        data = None
+                if isinstance(data, dict):
+                    data.update({"_id": item})
+                if data is not None:
+                    final.append(data)
         return final
 
     def _set_index(self, data, registry):
@@ -197,6 +217,13 @@ class ShelveModel(RestfulBaseInterface):
 
     def _new(self, data, registry, shelf):
         with shelve.open(shelf) as file:
+            if self.headers is not None:
+                new_data = list()
+                for header in self.headers:
+                    try:
+                        new_data.append(data[header])
+                    except KeyError:
+                        new_data.append("")
             file[str(registry)] = data
         with shelve.open(self._meta_path) as file:
             file["total"] += 1
@@ -212,7 +239,7 @@ class ShelveModel(RestfulBaseInterface):
         with shelve.open(shelf) as file:
             for reg in registries:
                 old_data = self._fetch({reg}, shelf)[0]
-                if old_data != list():
+                if old_data != list():#TODO
                     if "_id" in old_data:
                         del(old_data["_id"])
                     new_data = old_data.copy()
@@ -312,3 +339,7 @@ class ShelveModel(RestfulBaseInterface):
         while self._close is False:
             time.sleep(0.5)
         self.writer.join()
+
+    
+
+
