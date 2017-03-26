@@ -12,8 +12,25 @@ from zrest.exceptions import *
 
 
 class ShelveModel(RestfulBaseInterface):
+    """
+    ShelveModel with a double interface:
+    An inner interface with new, edit, replace, drop and fetch whose take dictionaries.
+    A Restful interface with post, patch, put, delete and get whose take json data.
 
+    To use with zrest.
+
+    """
     def __init__(self, filepath, groups=10, *, index_fields=None, headers=None):
+        """
+        Initializes ShelveModel
+        
+        :param filepath: path to save the database files
+        :param groups: splits to data database
+        :param index_fields: fields indexed. Not indexed fields do not accept queries
+        :param headers: headers of table. None by default. If None dictionaries are
+        stored.
+
+        """
         try:
             assert os.path.exists(filepath)
         except AssertionError:
@@ -57,7 +74,7 @@ class ShelveModel(RestfulBaseInterface):
             return meta["next"]
 
     @property
-    def name(self):
+    def name(self): #This has to be implemeneted in any way
         with shelve.open(self._meta_path) as shelf:
             name = shelf["class"]
         return name
@@ -120,6 +137,12 @@ class ShelveModel(RestfulBaseInterface):
                 pass
 
     def is_blocked(self, file):
+        """
+        Checks if given file is blocked
+        :param file: file to check.
+        :returns: True if blocked, False if not blocked
+
+        """
         try:
             assert file in [self._meta_path, ] + self.indexes_files + self.data_files
         except AssertionError:
@@ -166,6 +189,12 @@ class ShelveModel(RestfulBaseInterface):
         self._pipe_out.send(kwargs)
 
     def fetch(self, filter):
+        """
+        Gives the result of a query.
+        :param filter: dictionary with wanted coincidences
+        :returns: dictionary with result of the query
+
+        """
         filter = self._filter(filter)
         filter = self._get_datafile(filter)
         final = list()
@@ -213,6 +242,13 @@ class ShelveModel(RestfulBaseInterface):
                         shelf[index] -= {registry}
 
     def new(self, data):
+        """
+        Set new given data in the database
+        Blocks untill finnish
+        :param data: dictionary with given data. Saved as is if self.headers is None
+        :returns: Nothing
+
+        """
         conn_in, conn_out = Pipe(False)
         self._send_pipe(action="new", data=data, pipe=conn_out)
         conn_in.recv()
@@ -234,6 +270,14 @@ class ShelveModel(RestfulBaseInterface):
         self._set_index(data, registry)
 
     def replace(self, filter, data):
+        """
+        Replaces all data which coincides with given filter with given data
+        Blocks untill finnish
+        :param filter: dictionary with coincidences
+        :param data: dictionary with new data. It can be partial.
+        :returns: Nothing
+
+        """
         conn_in, conn_out = Pipe(False)
         self._send_pipe(action="replace", filter=filter, data=data, pipe=conn_out)
         conn_in.recv()
@@ -259,6 +303,10 @@ class ShelveModel(RestfulBaseInterface):
 
 
     def edit(self, filter, data):
+        """
+        replace alias
+
+        """
         conn_in, conn_out = Pipe(False)
         self._send_pipe(action="edit", filter=filter, data=data, pipe=conn_out)
         conn_in.recv()
@@ -267,6 +315,12 @@ class ShelveModel(RestfulBaseInterface):
         self._replace(data, registries, shelf)
 
     def drop(self, filter):
+        """
+        Deletes data from database which coincides with given filter
+        Blocks untill finnish
+        :param filter: dictionary with given filter
+        :returns: Nothing
+        """
         conn_in, conn_out = Pipe(False)
         self._send_pipe(action="drop", filter=filter, data={}, pipe=conn_out)
         conn_in.recv()
@@ -349,6 +403,10 @@ class ShelveModel(RestfulBaseInterface):
                 #TODO: Call private methods to write _new, _drop, _edit and _replace
 
     def close(self):
+        """
+        Waits until all interactions are finnished
+        It's called before detroying the instance
+        """
         self._pipe_out.close()
         while self._close is False:
             time.sleep(0.5)
