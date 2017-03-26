@@ -192,6 +192,8 @@ class ShelveModel(RestfulBaseInterface):
         return final
 
     def _set_index(self, data, registry):
+        if isinstance(data, list) and self.headers is not None and len(data) == len(self.headers):
+            data = dict(zip(self.headers, data))
         for field in data:
             if any([os.path.exists(file) 
                     for file in glob.glob("{}.*".format(self._index_path(field)))]+[False]):
@@ -224,6 +226,7 @@ class ShelveModel(RestfulBaseInterface):
                         new_data.append(data[header])
                     except KeyError:
                         new_data.append("")
+                data = new_data
             file[str(registry)] = data
         with shelve.open(self._meta_path) as file:
             file["total"] += 1
@@ -238,15 +241,22 @@ class ShelveModel(RestfulBaseInterface):
     def _replace(self, data, registries, shelf):
         with shelve.open(shelf) as file:
             for reg in registries:
-                old_data = self._fetch({reg}, shelf)[0]
-                if old_data != list():#TODO
-                    if "_id" in old_data:
-                        del(old_data["_id"])
-                    new_data = old_data.copy()
-                    new_data.update(data)
-                    self._del_index(old_data, reg)
-                    file[str(reg)] = new_data
-                    self._set_index(new_data, reg)
+                try:
+                    old_data = self._fetch({reg}, shelf)[0]
+                except ItemError:
+                    continue
+                else:
+                    if isinstance(old_data, dict): # Verified twice. It has to be a dict
+                        if "_id" in old_data:
+                            del(old_data["_id"])
+                        new_data = old_data.copy()
+                        new_data.update(data)
+                        self._del_index(old_data, reg)
+                        if self.headers is not None:
+                            new_data = [new_data[item] for item in self.headers]
+                        file[str(reg)] = new_data
+                        self._set_index(new_data, reg)
+
 
     def edit(self, filter, data):
         conn_in, conn_out = Pipe(False)
@@ -264,12 +274,16 @@ class ShelveModel(RestfulBaseInterface):
     def _drop(self, data, registries, shelf):
         with shelve.open(shelf) as file:
             for reg in registries:
-                old_data = self._fetch({reg}, shelf)
-                if old_data != list():
-                    self._del_index(old_data, reg)
-                    del(file[str(reg)])
-                    with shelve.open(self._meta_path) as file:
-                        file["total"] -= 1
+                try:
+                    old_data = self._fetch({reg}, shelf)
+                except ItemError:
+                    contine
+                else:
+                    if old_data != list():
+                        self._del_index(old_data, reg)
+                        del(file[str(reg)])
+                        with shelve.open(self._meta_path) as file:
+                            file["total"] -= 1
 
     def _filter(self, filter):
         final_set = set(range(0, len(self)))
