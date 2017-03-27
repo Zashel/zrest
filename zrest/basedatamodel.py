@@ -116,12 +116,12 @@ class RestfulBaseInterface(ModelBaseInterface):
         For GET methods
         :param filter: dictionary
         :param _type:
-        :return: data or HTTP204 in case of no data
+        :return: data or HTTP404 in case of no data
 
         """
         data = self._return(self.fetch(self._parse(filter, _type)), _type)
         if data == "[]":
-            data = HTTP204
+            data = HTTP404
         return data
 
     def post(self, *, data, _type="application/json", **kwargs):
