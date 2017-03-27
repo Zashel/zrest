@@ -75,7 +75,7 @@ class RestfulBaseInterface(ModelBaseInterface):
     :method patch:
 
     """
-    def _filter(self, filter):
+    def _filter(self, filter, data):
         """
         Filter method to get data
         :param filter: filter dictionary
@@ -111,7 +111,7 @@ class RestfulBaseInterface(ModelBaseInterface):
         if _type == "application/json": #TODO: XML
             return json.dumps(data)
 
-    def get(self, filter, _type="application/json"):
+    def get(self, *, filter, _type="application/json", **kwargs):
         """
         For GET methods
         :param filter: dictionary
@@ -124,7 +124,7 @@ class RestfulBaseInterface(ModelBaseInterface):
             data = HTTP204
         return data
 
-    def post(self, data, _type="application/json"):
+    def post(self, *, data, _type="application/json", **kwargs):
         """
         For POST Methods
         :param data: data to insert in model
@@ -138,7 +138,7 @@ class RestfulBaseInterface(ModelBaseInterface):
         except DataModelNewError as e:
             raise HTTPResponseError(get_code(e.code))
 
-    def put(self, filter, data, _type="application/json"):
+    def put(self, *, filter, data, _type="application/json", **kwargs):
         """
         For PUT methods
         :param filter:  Filter dictionary to data
@@ -154,7 +154,7 @@ class RestfulBaseInterface(ModelBaseInterface):
         except DataModelReplaceError as e:
             raise HTTPResponseError(get_code(e.code))
 
-    def delete(self, filter, _type="application/json"):
+    def delete(self, *, filter, _type="application/json", **kwargs):
         """
         For DELETE methods
         :param filter: Filter dictionary to delete
@@ -168,7 +168,7 @@ class RestfulBaseInterface(ModelBaseInterface):
         except DataModelDropError as e:
             raise HTTPResponseError(get_code(e.code))
 
-    def patch(self, filter, data, _type="application/json"):
+    def patch(self, *, filter, data, _type="application/json", **kwargs):
        """
        For PATCH methods
        :param filter: filter dictionary to update

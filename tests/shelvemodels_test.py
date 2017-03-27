@@ -7,6 +7,7 @@ import shelve
 import glob
 import random
 
+from contextlib import closing
 from multiprocessing import Pipe
 from zashel.utils import daemonize
 from zrest.datamodels.shelvemodels import *
@@ -48,55 +49,55 @@ class ShelveModel_Test(unittest.TestCase):
         self.assertTrue(self.model.name, "ShelveModel")
 
     def test_1_post(self):
-        self.assertEqual(self.model.post(json.dumps(self.data1)),
+        self.assertEqual(self.model.post(data=json.dumps(self.data1)),
                          HTTP201)
-        with shelve.open(os.path.join(self.path, "data_0")) as shelf:
+        with closing(shelve.open(os.path.join(self.path, "data_0"))) as shelf:
             self.assertEqual(shelf["0"], self.data1)
-        with shelve.open(os.path.join(self.path, "index_a")) as shelf:
+        with closing(shelve.open(os.path.join(self.path, "index_a"))) as shelf:
             self.assertEqual(shelf["1"], {0})
-        with shelve.open(os.path.join(self.path, "index_b")) as shelf:
+        with closing(shelve.open(os.path.join(self.path, "index_b"))) as shelf:
             self.assertEqual(shelf["2"], {0})
-        with shelve.open(os.path.join(self.path, "meta")) as shelf:
+        with closing(shelve.open(os.path.join(self.path, "meta"))) as shelf:
             self.assertEqual(shelf["total"], 1)
             self.assertEqual(shelf["next"], 1)
 
     def test_2_get(self):
-        self.assertEqual(json.loads(self.model.get(self.filter1)),
+        self.assertEqual(json.loads(self.model.get(filter=self.filter1)),
                          list((self.data1id, )))
-        self.assertEqual(json.loads(self.model.get(json.dumps({"_id": 0}))),
+        self.assertEqual(json.loads(self.model.get(filter=json.dumps({"_id": 0}))),
                          list((self.data1id, )))
 
     def test_3_put(self):
-        self.assertEqual(self.model.put(self.filter1, json.dumps(self.data2)),
+        self.assertEqual(self.model.put(filter=self.filter1, data=json.dumps(self.data2)),
                          HTTP204)
-        with shelve.open(os.path.join(self.path, "data_0")) as shelf:
+        with closing(shelve.open(os.path.join(self.path, "data_0"))) as shelf:
             self.assertEqual(shelf["0"], self.data2)
-        with shelve.open(os.path.join(self.path, "index_a")) as shelf:
+        with closing(shelve.open(os.path.join(self.path, "index_a"))) as shelf:
             self.assertEqual(shelf["4"], {0})
-        with shelve.open(os.path.join(self.path, "index_b")) as shelf:
+        with closing(shelve.open(os.path.join(self.path, "index_b"))) as shelf:
             self.assertEqual(shelf["5"], {0})
-        with shelve.open(os.path.join(self.path, "meta")) as shelf:
+        with closing(shelve.open(os.path.join(self.path, "meta"))) as shelf:
             self.assertEqual(shelf["total"], 1)
             self.assertEqual(shelf["next"], 1)
-        self.assertEqual(json.loads(self.model.get(self.filter2)),
+        self.assertEqual(json.loads(self.model.get(filter=self.filter2)),
                          [self.data2id])
 
     def test_4_patch(self):
-        self.assertEqual(self.model.patch(self.filter2, json.dumps(self.data3)),
+        self.assertEqual(self.model.patch(filter=self.filter2, data=json.dumps(self.data3)),
                          HTTP204)
         data = self.data2id.copy()
         data.update(self.data3)
-        self.assertEqual(json.loads(self.model.get(self.filter3)),
+        self.assertEqual(json.loads(self.model.get(filter=self.filter3)),
                          [data])
 
     def test_5_drop(self):
-        self.assertEqual(self.model.delete(self.filter3),
+        self.assertEqual(self.model.delete(filter=self.filter3),
                          HTTP204)
 
     def test_6_get_empty(self):
-        self.assertEqual(self.model.get(json.dumps({"_id": 0})), HTTP204)
-        self.assertEqual(self.model.put(self.filter1, json.dumps(self.data1)), HTTP204)
-        self.assertEqual(self.model.delete(self.filter1), HTTP204)
+        self.assertEqual(self.model.get(filter=json.dumps({"_id": 0})), HTTP204)
+        self.assertEqual(self.model.put(filter=self.filter1, data=json.dumps(self.data1)), HTTP204)
+        self.assertEqual(self.model.delete(filter=self.filter1), HTTP204)
 
     def test_7_massive_post(self):
         headers = ["a", "b", "c"]
@@ -104,7 +105,7 @@ class ShelveModel_Test(unittest.TestCase):
         for x in range(0, 100):
            final.append(dict(zip(headers, [random.randint(0, 100) for x in range(0, len(headers))])))
         for item in final:
-           self.assertEqual(self.model.post(json.dumps(item)), HTTP201)
+           self.assertEqual(self.model.post(data=json.dumps(item)), HTTP201)
         self.assertEqual(len(self.model), 100)
         self.assertEqual(next(self.model), 101)
 
@@ -124,7 +125,7 @@ class ShelveModel_Test(unittest.TestCase):
         @daemonize
         def post(model, data, id, conn):
             try:
-                conn.send([id, model.post(json.dumps(data))])
+                conn.send([id, model.post(data=json.dumps(data))])
             except BrokenPipeError:
                 pass
         headers = ["a", "b", "c"]
@@ -157,31 +158,31 @@ class ShelveModel_Test_2(ShelveModel_Test):
         cls.model1 = ShelveModel(cls.path)
 
     def test_1_post(self):
-        self.assertEqual(self.model.post(json.dumps(self.data1)),
+        self.assertEqual(self.model.post(data=json.dumps(self.data1)),
                          HTTP201)
-        with shelve.open(os.path.join(self.path, "data_0")) as shelf:
+        with closing(shelve.open(os.path.join(self.path, "data_0"))) as shelf:
             self.assertEqual(shelf["0"], [self.data1[index] for index in self.headers])
-        with shelve.open(os.path.join(self.path, "index_a")) as shelf:
+        with closing(shelve.open(os.path.join(self.path, "index_a"))) as shelf:
             self.assertEqual(shelf["1"], {0})
-        with shelve.open(os.path.join(self.path, "index_b")) as shelf:
+        with closing(shelve.open(os.path.join(self.path, "index_b"))) as shelf:
             self.assertEqual(shelf["2"], {0})
-        with shelve.open(os.path.join(self.path, "meta")) as shelf:
+        with closing(shelve.open(os.path.join(self.path, "meta"))) as shelf:
             self.assertEqual(shelf["total"], 1)
             self.assertEqual(shelf["next"], 1)     
 
     def test_3_put(self):
-        self.assertEqual(self.model.put(self.filter1, json.dumps(self.data2)),
+        self.assertEqual(self.model.put(filter=self.filter1, data=json.dumps(self.data2)),
                          HTTP204)
-        with shelve.open(os.path.join(self.path, "data_0")) as shelf:
+        with closing(shelve.open(os.path.join(self.path, "data_0"))) as shelf:
             self.assertEqual(shelf["0"], [self.data2[item] for item in self.headers])
-        with shelve.open(os.path.join(self.path, "index_a")) as shelf:
+        with closing(shelve.open(os.path.join(self.path, "index_a"))) as shelf:
             self.assertEqual(shelf["4"], {0})
-        with shelve.open(os.path.join(self.path, "index_b")) as shelf:
+        with closing(shelve.open(os.path.join(self.path, "index_b"))) as shelf:
             self.assertEqual(shelf["5"], {0})
-        with shelve.open(os.path.join(self.path, "meta")) as shelf:
+        with closing(shelve.open(os.path.join(self.path, "meta"))) as shelf:
             self.assertEqual(shelf["total"], 1)
             self.assertEqual(shelf["next"], 1)
-        self.assertEqual(json.loads(self.model.get(self.filter2)),
+        self.assertEqual(json.loads(self.model.get(filter=self.filter2)),
                          [self.data2id])
 
 
