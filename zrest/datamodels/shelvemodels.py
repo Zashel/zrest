@@ -5,6 +5,7 @@ import time
 import uuid
 import glob
 
+
 from multiprocessing import Pipe
 from zashel.utils import threadize
 from zrest.basedatamodel import *
@@ -36,7 +37,6 @@ class ShelveModel(RestfulBaseInterface):
         except AssertionError:
             os.makedirs(filepath)
         self.uuid = str(uuid.uuid4())
-        self._groups = groups
         self._filepath = filepath
         self._alive = False
         self._opened = True
@@ -50,32 +50,58 @@ class ShelveModel(RestfulBaseInterface):
             assert isinstance(index_fields, list)
             self._index_fields = index_fields
         try:
-            assert os.path.exists(self._meta_path)
+            assert any([os.path.exists(file)
+                    for file in glob.glob("{}.*".format(self._meta_path))]+[False])
         except AssertionError:
             with shelve.open(self._meta_path) as shelf:
                 shelf["filepath"] = self._meta_path
                 shelf["total"] = int()
                 shelf["next"] = int()
+                shelf["groups"] = groups
                 shelf["class"] = self.__class__.__name__
             for index in self.index_fields:
                 with shelve.open(self._index_path(index)) as shelf:
                     shelf["filepath"] = self._index_path(index)
-            for group in range(0, self.groups):
+            for group in range(0, groups):
                 with shelve.open(self._data_path(group)) as shelf:
                     shelf["filepath"] = self._data_path(group)
         self.writer = self._writer()
+        with shelve.open(self._meta_path, "r") as shelf:
+            self._groups = shelf["groups"]
 
     def __len__(self):
-        with shelve.open(self._meta_path, "r") as meta:
-            return meta["total"]
+        final = None
+        while True:
+            try:
+                with shelve.open(self._meta_path, "r") as meta:
+                    final = meta["total"]
+            except (KeyboardInterrupt, SystemExit):
+                raise
+            except:
+                continue
+            else:
+                if final is not None:
+                    break
+        return final
 
     def __next__(self): #This is not very appropiate, but...
-        with shelve.open(self._meta_path) as meta:
-            return meta["next"]
+        final = None
+        while True:
+            try:
+                with shelve.open(self._meta_path, "r") as meta:
+                    final = meta["next"]
+            except (KeyboardInterrupt, SystemExit):
+                    raise
+            except:
+                continue
+            else:
+                if final is not None:
+                    break
+        return final
 
     @property
     def name(self): #This has to be implemeneted in any way
-        with shelve.open(self._meta_path) as shelf:
+        with shelve.open(self._meta_path, "r") as shelf:
             name = shelf["class"]
         return name
 
@@ -103,7 +129,7 @@ class ShelveModel(RestfulBaseInterface):
     def headers(self):
         if self._headers is None and self._headers_checked is False:
             try:
-                with shelve.open(self._data_path(0)) as shelf:
+                with shelve.open(self._data_path(0), "r") as shelf:
                     self._headers = shelf["headers"]
             except KeyError:
                 self._headers = None
@@ -123,17 +149,17 @@ class ShelveModel(RestfulBaseInterface):
 
     def _block(self, file):
         assert file in [self._meta_path, ] + self.indexes_files + self.data_files
-        if not self.is_blocked(file):
+        if self.is_blocked(file) is False:
             with open("{}.block".format(file), "w") as block:
                 block.write("{}\t{}".format(self.uuid, datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
         else:
             raise BlockedFile
 
     def _unblock(self, file):
-        if not self.is_blocked(file):
+        if self.is_blocked(file) is False:
             try:
                 os.remove("{}.block".format(file))
-            except FileNotFoundError:
+            except (FileNotFoundError, PermissionError):
                 pass
 
     def is_blocked(self, file):
@@ -143,10 +169,6 @@ class ShelveModel(RestfulBaseInterface):
         :returns: True if blocked, False if not blocked
 
         """
-        try:
-            assert file in [self._meta_path, ] + self.indexes_files + self.data_files
-        except AssertionError:
-            print(file)
         blocked = False
         filepath = "{}.block".format(file)
         if os.path.exists(filepath):
@@ -155,34 +177,46 @@ class ShelveModel(RestfulBaseInterface):
                     uuid, date = block.read().strip("\n").split("\t")
                 date = datetime.datetime.strptime(date, "%Y-%m-%d %H:%M:%S")
                 now = datetime.datetime.now()
-                if uuid != self.uuid and date+datetime.timedelta(seconds=10)>now:
+                if uuid != self.uuid and date+datetime.timedelta(seconds=5)>now:
                     blocked = True
+                elif date+datetime.timedelta(seconds=5)< now:
+                    os.remove(filepath)
             except (FileNotFoundError, ValueError):
                 pass
-            except BlockedFile:
+            except (PermissionError):
                 blocked = True
         return blocked
 
 
     def _wait_to_block(self, file):
         while True:
-            if self.is_blocked(file):
-                time.sleep(1)
+            if self.is_blocked(file) is True:
+                time.sleep(0.5)
             else:
                 try:
                     self._block(file)
-                except BlockedFile:
+                except (BlockedFile, PermissionError):
                     continue
                 else:
-                    self._alive = True
-                    break
+                    time.sleep(0.05)
+                    if self.is_blocked(file) is False:
+                        self._alive = True
+                        break
 
     @threadize
     def _keep_alive(self, file):
+        counter = int()
         while self._alive is True:
-            if self.is_blocked(file) is True:
-                time.sleep(3)
-                self._block(file)
+            if os.path.exists("{}.block".format(file)):
+                if self._alive is True and counter%50==0:
+                    try:
+                        self._block(file)
+                    except (BlockedFile, PermissionError, FileNotFoundError):
+                        continue
+            else:
+                self._alive = False
+            counter += 1
+            time.sleep(0.1)
         self._unblock(file)
 
     def _send_pipe(self, **kwargs):
@@ -206,7 +240,7 @@ class ShelveModel(RestfulBaseInterface):
         if isinstance(registries, int):
             registries = {registries}
         final = list()
-        with shelve.open(shelf) as file:
+        with shelve.open(shelf, "r") as file:
             for item in registries:
                 data = file[str(item)]
                 if isinstance(data, list) and self.headers is not None:
@@ -224,8 +258,9 @@ class ShelveModel(RestfulBaseInterface):
         if isinstance(data, list) and self.headers is not None and len(data) == len(self.headers):
             data = dict(zip(self.headers, data))
         for field in data:
-            if any([os.path.exists(file) 
-                    for file in glob.glob("{}.*".format(self._index_path(field)))]+[False]):
+            if (any([os.path.exists(file)
+                    for file in glob.glob("{}.*".format(self._index_path(field)))]+[False]) and
+                    self.is_blocked(self._index_path(field)) is False):
                 with shelve.open(self._index_path(field)) as shelf:
                     index = str(data[field])
                     if not index in shelf:
@@ -234,8 +269,9 @@ class ShelveModel(RestfulBaseInterface):
 
     def _del_index(self, data, registry):
         for field in data:
-            if any([os.path.exists(file)
-                    for file in glob.glob("{}.*".format(self._index_path(field)))]+[False]):
+            if (any([os.path.exists(file)
+                    for file in glob.glob("{}.*".format(self._index_path(field)))]+[False]) and
+                    self.is_blocked(self._index_path(field)) is False):
                 with shelve.open(self._index_path(field)) as shelf:
                     index = str(data[field])
                     if index in shelf:
@@ -265,8 +301,9 @@ class ShelveModel(RestfulBaseInterface):
                 data = new_data
             file[str(registry)] = data
         with shelve.open(self._meta_path) as file:
-            file["total"] += 1
-            file["next"] += 1
+            total, next_ = len(self), next(self) #Bug!
+            file["total"] = total + 1
+            file["next"] = next_ + 1
         self._set_index(data, registry)
 
     def replace(self, filter, data):
@@ -331,7 +368,7 @@ class ShelveModel(RestfulBaseInterface):
                 try:
                     old_data = self._fetch({reg}, shelf)
                 except ItemError:
-                    contine
+                    continue
                 else:
                     if old_data != list():
                         self._del_index(old_data, reg)
@@ -392,12 +429,20 @@ class ShelveModel(RestfulBaseInterface):
                 for filename in filename_reg:
                     self._wait_to_block(filename)
                     self._keep_alive(filename)
-                    for field in self.indexes_files:
+                    for field in self.index_fields:
                         if any([os.path.exists(file)
                                 for file in glob.glob("{}.*".format(self._index_path(field)))]+[False]):
                             self._wait_to_block(self._index_path(field))
                             self._keep_alive(self._index_path(field))
-                    self.__getattribute__("_{}".format(data["action"]))(data["data"], filename_reg[filename], filename)
+                    for x in range(0, 10):
+                        try:
+                            self.__getattribute__("_{}".format(data["action"]))(data["data"], filename_reg[filename], filename)
+                        except (KeyboardInterrupt, SystemExit):
+                            raise
+                        except:
+                            continue
+                        else:
+                            break
                     self._alive = False
                 data["pipe"].send(0)
                 #TODO: Call private methods to write _new, _drop, _edit and _replace
