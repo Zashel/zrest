@@ -28,7 +28,7 @@ class ModelBaseInterface:
         """
         Set new data to model
         :param data: data to be
-        :return: statuscode
+        :return: data given with new _id
         :raises: DataModelNewError
 
         """
@@ -133,8 +133,8 @@ class RestfulBaseInterface(ModelBaseInterface):
 
         """
         try:
-            self.new(self._parse(data, _type))
-            return HTTP201
+            data = self._return(self.new(self._parse(data, _type)), _type)
+            return data
         except DataModelNewError as e:
             raise HTTPResponseError(get_code(e.code))
 

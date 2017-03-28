@@ -91,6 +91,10 @@ class StatusCode:
     def code(self):
         return self._code
 
+    @property
+    def text(self):
+        return StatusCode.CODES[self.code]
+
 
 for code in StatusCode.CODES:
     name = "HTTP{}".format(code)

@@ -1,11 +1,17 @@
+# Python 3.3 or higher
 import shelve
 import os
 import datetime
 import time
 import uuid
 import glob
+import sys
 
-from contextlib import closing
+if sys.version_info.minor == 3:
+    from contextlib import closing
+    shelve_open = lambda file, flag="c", protocol=None, writeback=False: closing(shelve.open(file, flag))
+else:
+    shelve_open = shelve.open
 from multiprocessing import Pipe
 from zashel.utils import threadize
 from zrest.basedatamodel import *
@@ -53,27 +59,28 @@ class ShelveModel(RestfulBaseInterface):
             assert any([os.path.exists(file)
                     for file in glob.glob("{}.*".format(self._meta_path))]+[False])
         except AssertionError:
-            with closing(shelve.open(self._meta_path)) as shelf:
+            with shelve_open(self._meta_path) as shelf:
                 shelf["filepath"] = self._meta_path
                 shelf["total"] = int()
                 shelf["next"] = int()
                 shelf["groups"] = groups
                 shelf["class"] = self.__class__.__name__
             for index in self.index_fields:
-                with closing(shelve.open(self._index_path(index))) as shelf:
+                with shelve_open(self._index_path(index)) as shelf:
                     shelf["filepath"] = self._index_path(index)
             for group in range(0, groups):
-                with closing(shelve.open(self._data_path(group))) as shelf:
+                with shelve_open(self._data_path(group)) as shelf:
                     shelf["filepath"] = self._data_path(group)
         self.writer = self._writer()
-        with closing(shelve.open(self._meta_path, "r")) as shelf:
+        with shelve_open(self._meta_path, "r") as shelf:
             self._groups = shelf["groups"]
+        time.sleep(0.05)
 
     def __len__(self):
         final = None
         while True:
             try:
-                with closing(shelve.open(self._meta_path, "r")) as meta:
+                with shelve_open(self._meta_path, "r") as meta:
                     final = meta["total"]
             except (KeyboardInterrupt, SystemExit):
                 raise
@@ -88,7 +95,7 @@ class ShelveModel(RestfulBaseInterface):
         final = None
         while True:
             try:
-                with closing(shelve.open(self._meta_path, "r")) as meta:
+                with shelve_open(self._meta_path, "r") as meta:
                     final = meta["next"]
             except (KeyboardInterrupt, SystemExit):
                     raise
@@ -101,7 +108,7 @@ class ShelveModel(RestfulBaseInterface):
 
     @property
     def name(self): #This has to be implemeneted in any way
-        with closing(shelve.open(self._meta_path, "r")) as shelf:
+        with shelve_open(self._meta_path, "r") as shelf:
             name = shelf["class"]
         return name
 
@@ -129,7 +136,7 @@ class ShelveModel(RestfulBaseInterface):
     def headers(self):
         if self._headers is None and self._headers_checked is False:
             try:
-                with closing(shelve.open(self._data_path(0), "r")) as shelf:
+                with shelve_open(self._data_path(0), "r") as shelf:
                     self._headers = shelf["headers"]
             except KeyError:
                 self._headers = None
@@ -239,7 +246,7 @@ class ShelveModel(RestfulBaseInterface):
         if isinstance(registries, int):
             registries = {registries}
         final = list()
-        with closing(shelve.open(shelf, "r")) as file:
+        with shelve_open(shelf, "r") as file:
             for item in registries:
                 data = file[str(item)]
                 if isinstance(data, list) and self.headers is not None:
@@ -260,7 +267,7 @@ class ShelveModel(RestfulBaseInterface):
             if (any([os.path.exists(file)
                     for file in glob.glob("{}.*".format(self._index_path(field)))]+[False]) and
                     self.is_blocked(self._index_path(field)) is False):
-                with closing(shelve.open(self._index_path(field))) as shelf:
+                with shelve_open(self._index_path(field)) as shelf:
                     index = str(data[field])
                     if not index in shelf:
                         shelf[index] = set()
@@ -271,12 +278,12 @@ class ShelveModel(RestfulBaseInterface):
             if (any([os.path.exists(file)
                     for file in glob.glob("{}.*".format(self._index_path(field)))]+[False]) and
                     self.is_blocked(self._index_path(field)) is False):
-                with closing(shelve.open(self._index_path(field))) as shelf:
+                with shelve_open(self._index_path(field)) as shelf:
                     index = str(data[field])
                     if index in shelf:
                         shelf[index] -= {registry}
 
-    def new(self, data):
+    def new(self, data): #TODO: Errors setting new data
         """
         Set new given data in the database
         Blocks untill finnish
@@ -286,10 +293,10 @@ class ShelveModel(RestfulBaseInterface):
         """
         conn_in, conn_out = Pipe(False)
         self._send_pipe(action="new", data=data, pipe=conn_out)
-        conn_in.recv()
+        return conn_in.recv()
 
     def _new(self, data, registry, shelf):
-        with closing(shelve.open(shelf)) as file:
+        with shelve_open(shelf) as file:
             if self.headers is not None:
                 new_data = list()
                 for header in self.headers:
@@ -299,7 +306,7 @@ class ShelveModel(RestfulBaseInterface):
                         new_data.append("")
                 data = new_data
             file[str(registry)] = data
-        with closing(shelve.open(self._meta_path)) as file:
+        with shelve_open(self._meta_path) as file:
             total, next_ = len(self), next(self) #Bug!
             file["total"] = total + 1
             file["next"] = next_ + 1
@@ -319,7 +326,7 @@ class ShelveModel(RestfulBaseInterface):
         conn_in.recv()
 
     def _replace(self, data, registries, shelf):
-        with closing(shelve.open(shelf)) as file:
+        with shelve_open(shelf) as file:
             for reg in registries:
                 try:
                     old_data = self._fetch({reg}, shelf)[0]
@@ -362,7 +369,7 @@ class ShelveModel(RestfulBaseInterface):
         conn_in.recv()
 
     def _drop(self, data, registries, shelf):
-        with closing(shelve.open(shelf)) as file:
+        with shelve_open(shelf) as file:
             for reg in registries:
                 try:
                     old_data = self._fetch({reg}, shelf)
@@ -372,19 +379,21 @@ class ShelveModel(RestfulBaseInterface):
                     if old_data != list():
                         self._del_index(old_data, reg)
                         del(file[str(reg)])
-                        with closing(shelve.open(self._meta_path)) as file:
+                        with shelve_open(self._meta_path) as file:
                             file["total"] -= 1
 
     def _filter(self, filter):
         final_set = set(range(0, len(self)))
         for field in filter:
             subfilter = set()
-            if field == "_id":
-                subfilter = {filter["_id"]}
+            if field == "_id" and filter[field] != "":
+                subfilter = {int(filter["_id"])}
+            elif field == "_id" and filter[field] == "":
+                subfilter = final_set
             else:
                 if any([os.path.exists(file)
                         for file in glob.glob("{}.*".format(self._index_path(field)))]+[False]):
-                    with closing(shelve.open(self._index_path(field), "r")) as index:
+                    with shelve_open(self._index_path(field), "r") as index:
                         if str(filter[field]) in index:
                             subfilter = index[str(filter[field])]
             final_set &= subfilter
@@ -416,6 +425,7 @@ class ShelveModel(RestfulBaseInterface):
                 self._close = True
                 break
             else:
+                send = 0
                 self._wait_to_block(self._meta_path)
                 self._keep_alive(self._meta_path)
                 if "filter" in data and data["action"] not in ("new",):
@@ -458,9 +468,12 @@ class ShelveModel(RestfulBaseInterface):
                             time.sleep(0.1)
                             continue
                         else:
+                            if data["action"] == "new":
+                                send = data["data"]
+                                send.update({"_id": total})
                             break
                 self._alive = False
-                data["pipe"].send(0)
+                data["pipe"].send(send)
                 #TODO: send error
 
     def close(self):
