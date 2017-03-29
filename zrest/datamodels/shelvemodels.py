@@ -248,7 +248,10 @@ class ShelveModel(RestfulBaseInterface):
         final = list()
         with shelve_open(shelf, "r") as file:
             for item in registries:
-                data = file[str(item)]
+                try:
+                    data = file[str(item)]
+                except:
+                    data = None
                 if isinstance(data, list) and self.headers is not None:
                     if data is not None and len(data)==len(self.headers):
                         data = dict(zip(self.headers, data))
@@ -258,8 +261,7 @@ class ShelveModel(RestfulBaseInterface):
                     data.update({"_id": item})
                 if data is not None:
                     final.append(data)
-        if final != list():
-            return final
+        return final
 
     def _set_index(self, data, registry):
         if isinstance(data, list) and self.headers is not None and len(data) == len(self.headers):
@@ -384,7 +386,7 @@ class ShelveModel(RestfulBaseInterface):
                             file["total"] -= 1
 
     def _filter(self, filter):
-        final_set = set(range(0, len(self)))
+        final_set = set(range(0, next(self)))
         for field in filter:
             subfilter = set()
             if field == "_id" and filter[field] != "":
@@ -398,6 +400,7 @@ class ShelveModel(RestfulBaseInterface):
                         if str(filter[field]) in index:
                             subfilter = index[str(filter[field])]
             final_set &= subfilter
+        print("Final_Set:{}".format(final_set))
         return final_set
 
     def _get_datafile(self, filter):
@@ -475,7 +478,12 @@ class ShelveModel(RestfulBaseInterface):
                                 send.update({"_id": total})
                             break
                 if data["action"] in ("drop", "edit", "replace"):
-                     send = self.fetch(data["filter"])
+                     try:
+                         send = self.fetch(data["filter"])
+                         """After an edit or a replace filter may change...
+                            Is it a bug?"""
+                     except KeyError:
+                         send = None
                 self._alive = False
                 data["pipe"].send(send)
                 #TODO: send error

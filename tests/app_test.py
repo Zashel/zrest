@@ -59,8 +59,12 @@ class App_Test(unittest.TestCase):
         self.gets1 = ["0", "?a=1", "?b=2", "?c=3",
                       "?a=1&b=2", "?b=2&c=3",
                       "?a=1&b=2&c=3"]
+        self.data2id = [{"a":4, "b":5, "c":9, "_id":1}]
+        self.data3 = {"a":16, "b":17, "c":18}
+        self.data3id = self.data3.copy()
+        self.data3id.update({"_id": 4})
 
-    def test_0_put(self):
+    def test_0_post(self):
         req = requests.post("http://localhost:9000/model1/",
                             json = self.data1)
         self.assertEqual(req.status_code, 201)
@@ -93,6 +97,19 @@ class App_Test(unittest.TestCase):
         self.assertEqual(req.status_code, 200)
         self.assertEqual(req.headers["Content-Type"], "application/json")
         self.assertEqual(json.loads(req.text), {"message": "Deleted"})
+
+    def test_3_patch(self):
+        req = requests.patch("http://localhost:9000/model1/?a=4", json={"c": 9})
+        self.assertEqual(req.status_code, 200)
+        self.assertEqual(req.headers["Content-Type"], "application/json")
+        self.assertEqual(json.loads(req.text), self.data2id)
+
+    def test_4_put(self):
+        req = requests.put("http://localhost:9000/model1/?a=13", json=self.data3)
+        self.assertEqual(req.status_code, 200)
+        self.assertEqual(req.headers["Content-Type"], "application/json")      
+        self.assertEqual(json.loads(req.text), self.data3id)
+    
 
 if __name__ == "__main__":
     unittest.main()
