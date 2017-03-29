@@ -191,7 +191,7 @@ class ShelveModel_Test_2(ShelveModel_Test):
 
     def test_3_put(self):
         self.assertEqual(self.model.put(filter=self.filter1, data=json.dumps(self.data2)),
-                         self.data2id)
+                         [self.data2id])
         with shelve_open(os.path.join(self.path, "data_0")) as shelf:
             self.assertEqual(shelf["0"], [self.data2[item] for item in self.headers])
         with shelve_open(os.path.join(self.path, "index_a")) as shelf:
