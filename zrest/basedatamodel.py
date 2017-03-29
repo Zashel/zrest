@@ -108,8 +108,12 @@ class RestfulBaseInterface(ModelBaseInterface):
         :return: data in specified type
 
         """
-        if _type == "application/json": #TODO: XML
+        if not data:
+            data = str()
+        if _type == "application/json" and data: #TODO: XML
             return json.dumps(data)
+        else:
+            return data
 
     def get(self, *, filter, _type="application/json", **kwargs):
         """
@@ -126,7 +130,7 @@ class RestfulBaseInterface(ModelBaseInterface):
         """
         For POST Methods
         :param data: data to insert in model
-        :return: HTTP201 if created
+        :return: Data created
 
         """
         data = self._return(self.new(self._parse(data, _type)), _type)
@@ -138,21 +142,21 @@ class RestfulBaseInterface(ModelBaseInterface):
         :param filter:  Filter dictionary to data
         :param data: data to update
         :param _type: type of given data
-        :return: HTTP204 if updated
+        :return: Data updated
 
         """
-        data = self.replace(self._parse(filter, _type), self._parse(data, _type))
+        data = self._return(self.replace(self._parse(filter, _type), self._parse(data, _type)), _type)
         return data
 
     def delete(self, *, filter, _type="application/json", **kwargs):
         """
         For DELETE methods
         :param filter: Filter dictionary to delete
-        :return: HTTP204 if removed
+        :return: Data removed, usually nothing.
 
         """
         data = self.drop(self._parse(filter, _type))
-        return data
+        return self._return(data, _type)
 
     def patch(self, *, filter, data, _type="application/json", **kwargs):
         """
@@ -160,9 +164,8 @@ class RestfulBaseInterface(ModelBaseInterface):
         :param filter: filter dictionary to update
         :param data: data to update to filter
         :param _type: type of given data
-        :return: HTTP204 if patched
-        :raises: HTTPResponseError
+        :return: Data patched
 
         """
         data = self.edit(self._parse(filter, _type), self._parse(data, _type))
-        return data
+        return self._return(data, _type)

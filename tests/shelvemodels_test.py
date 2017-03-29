@@ -82,7 +82,7 @@ class ShelveModel_Test(unittest.TestCase):
 
     def test_3_put(self):
         self.assertEqual(json.loads(self.model.put(filter=self.filter1, data=json.dumps(self.data2))),
-                         self.data2id)
+                         [self.data2id])
         with shelve_open(os.path.join(self.path, "data_0")) as shelf:
             self.assertEqual(shelf["0"], self.data2)
         with shelve_open(os.path.join(self.path, "index_a")) as shelf:
@@ -99,7 +99,7 @@ class ShelveModel_Test(unittest.TestCase):
         data = self.data2id.copy()
         data.update(self.data3)
         self.assertEqual(json.loads(self.model.patch(filter=self.filter2, data=json.dumps(self.data3))),
-                         data)
+                         [data])
         self.assertEqual(json.loads(self.model.get(filter=self.filter3)),
                          [data])
 
@@ -108,7 +108,7 @@ class ShelveModel_Test(unittest.TestCase):
                          "")
 
     def test_6_get_empty(self):
-        self.assertEqual(json.loads(self.model.get(filter=json.dumps({"_id": 0}))), [])
+        self.assertEqual(json.loads(self.model.get(filter=json.dumps({"_id": 0}))), "")
         self.assertEqual(self.model.put(filter=self.filter1, data=json.dumps(self.data1)), "")
         self.assertEqual(self.model.delete(filter=self.filter1), "")
 
@@ -155,10 +155,9 @@ class ShelveModel_Test(unittest.TestCase):
             connections.append((index, conn_in, conn_out))
             post(models[index%len(models)], item, index, conn_out)
         for index, conn_in, conn_out in connections:
-            print(index)
             data = conn_in.recv()
             self.assertEqual(data[0], index)
-            self.assertTrue(isinstance(data[1], dict))
+            self.assertTrue(isinstance(json.loads(data[1]), dict))
             conn_out.close()
             conn_in.close()
         self.assertEqual(len(models[0]), 300)
@@ -178,8 +177,8 @@ class ShelveModel_Test_2(ShelveModel_Test):
         cls.model4 = ShelveModel(cls.path)
 
     def test_1_post(self):
-        self.assertEqual(self.model.post(data=json.dumps(self.data1)),
-                         HTTP201)
+        self.assertEqual(json.loads(self.model.post(data=json.dumps(self.data1))),
+                         self.data1id)
         with shelve_open(os.path.join(self.path, "data_0")) as shelf:
             self.assertEqual(shelf["0"], [self.data1[index] for index in self.headers])
         with shelve_open(os.path.join(self.path, "index_a")) as shelf:
@@ -192,7 +191,7 @@ class ShelveModel_Test_2(ShelveModel_Test):
 
     def test_3_put(self):
         self.assertEqual(self.model.put(filter=self.filter1, data=json.dumps(self.data2)),
-                         HTTP204)
+                         self.data2id)
         with shelve_open(os.path.join(self.path, "data_0")) as shelf:
             self.assertEqual(shelf["0"], [self.data2[item] for item in self.headers])
         with shelve_open(os.path.join(self.path, "index_a")) as shelf:

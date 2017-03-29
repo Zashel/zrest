@@ -324,7 +324,7 @@ class ShelveModel(RestfulBaseInterface):
         """
         conn_in, conn_out = Pipe(False)
         self._send_pipe(action="replace", filter=filter, data=data, pipe=conn_out)
-        conn_in.recv()
+        return conn_in.recv()
 
     def _replace(self, data, registries, shelf):
         with shelve_open(shelf) as file:
@@ -353,7 +353,7 @@ class ShelveModel(RestfulBaseInterface):
         """
         conn_in, conn_out = Pipe(False)
         self._send_pipe(action="edit", filter=filter, data=data, pipe=conn_out)
-        conn_in.recv()
+        return conn_in.recv()
 
     def _edit(self, data, registries, shelf):
         self._replace(data, registries, shelf)
@@ -436,6 +436,7 @@ class ShelveModel(RestfulBaseInterface):
                 else:
                     total = next(self)
                     filename_reg = {self._data_path(total % self.groups): total}
+                to_send = list()
                 for filename in filename_reg:
                     self._wait_to_block(filename)
                     self._keep_alive(filename)
@@ -472,9 +473,9 @@ class ShelveModel(RestfulBaseInterface):
                             if data["action"] == "new":
                                 send = data["data"]
                                 send.update({"_id": total})
-                            elif data["action"] in ("drop", ):
-                                send = str()
                             break
+                if data["action"] in ("drop", "edit", "replace"):
+                     send = self.fetch(data["filter"])
                 self._alive = False
                 data["pipe"].send(send)
                 #TODO: send error
