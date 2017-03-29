@@ -108,7 +108,7 @@ class ShelveModel_Test(unittest.TestCase):
                          "")
 
     def test_6_get_empty(self):
-        self.assertEqual(json.loads(self.model.get(filter=json.dumps({"_id": 0}))), "")
+        self.assertEqual(self.model.get(filter=json.dumps({"_id": 0})), "")
         self.assertEqual(self.model.put(filter=self.filter1, data=json.dumps(self.data1)), "")
         self.assertEqual(self.model.delete(filter=self.filter1), "")
 
