@@ -96,7 +96,7 @@ class RestfulBaseInterface(ModelBaseInterface):
         if _type == "application/json": #TODO: XML Parsing
             return json.loads(data)
         else:
-            raise HTTPResponseError(HTTP415)
+            return json.loads(data)
 
     def _return(self, data, _type="application/json"):
         """
@@ -116,12 +116,10 @@ class RestfulBaseInterface(ModelBaseInterface):
         For GET methods
         :param filter: dictionary
         :param _type:
-        :return: data or HTTP404 in case of no data
+        :return: data
 
         """
         data = self._return(self.fetch(self._parse(filter, _type)), _type)
-        if data == "[]":
-            data = HTTP404
         return data
 
     def post(self, *, data, _type="application/json", **kwargs):
@@ -129,14 +127,10 @@ class RestfulBaseInterface(ModelBaseInterface):
         For POST Methods
         :param data: data to insert in model
         :return: HTTP201 if created
-        :raises: HTTPResponseError()
 
         """
-        try:
-            data = self._return(self.new(self._parse(data, _type)), _type)
-            return data
-        except DataModelNewError as e:
-            raise HTTPResponseError(get_code(e.code))
+        data = self._return(self.new(self._parse(data, _type)), _type)
+        return data
 
     def put(self, *, filter, data, _type="application/json", **kwargs):
         """
@@ -145,41 +139,30 @@ class RestfulBaseInterface(ModelBaseInterface):
         :param data: data to update
         :param _type: type of given data
         :return: HTTP204 if updated
-        :raises: HTTPResponseError
 
         """
-        try:
-            self.replace(self._parse(filter, _type), self._parse(data, _type))
-            return HTTP204
-        except DataModelReplaceError as e:
-            raise HTTPResponseError(get_code(e.code))
+        data = self.replace(self._parse(filter, _type), self._parse(data, _type))
+        return data
 
     def delete(self, *, filter, _type="application/json", **kwargs):
         """
         For DELETE methods
         :param filter: Filter dictionary to delete
         :return: HTTP204 if removed
+
+        """
+        data = self.drop(self._parse(filter, _type))
+        return data
+
+    def patch(self, *, filter, data, _type="application/json", **kwargs):
+        """
+        For PATCH methods
+        :param filter: filter dictionary to update
+        :param data: data to update to filter
+        :param _type: type of given data
+        :return: HTTP204 if patched
         :raises: HTTPResponseError
 
         """
-        try:
-            self.drop(self._parse(filter, _type))
-            return HTTP204
-        except DataModelDropError as e:
-            raise HTTPResponseError(get_code(e.code))
-
-    def patch(self, *, filter, data, _type="application/json", **kwargs):
-       """
-       For PATCH methods
-       :param filter: filter dictionary to update
-       :param data: data to update to filter
-       :param _type: type of given data
-       :return: HTTP204 if patched
-       :raises: HTTPResponseError
-
-       """
-       try:
-           self.edit(self._parse(filter, _type), self._parse(data, _type))
-           return HTTP204
-       except DataModelEditError as e:
-           raise HTTPResponseError(get_code(e.code))
+        data = self.edit(self._parse(filter, _type), self._parse(data, _type))
+        return data

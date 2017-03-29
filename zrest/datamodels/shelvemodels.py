@@ -258,7 +258,8 @@ class ShelveModel(RestfulBaseInterface):
                     data.update({"_id": item})
                 if data is not None:
                     final.append(data)
-        return final
+        if final != list():
+            return final
 
     def _set_index(self, data, registry):
         if isinstance(data, list) and self.headers is not None and len(data) == len(self.headers):
@@ -366,7 +367,7 @@ class ShelveModel(RestfulBaseInterface):
         """
         conn_in, conn_out = Pipe(False)
         self._send_pipe(action="drop", filter=filter, data={}, pipe=conn_out)
-        conn_in.recv()
+        return conn_in.recv()
 
     def _drop(self, data, registries, shelf):
         with shelve_open(shelf) as file:
@@ -471,6 +472,8 @@ class ShelveModel(RestfulBaseInterface):
                             if data["action"] == "new":
                                 send = data["data"]
                                 send.update({"_id": total})
+                            elif data["action"] in ("drop", ):
+                                send = str()
                             break
                 self._alive = False
                 data["pipe"].send(send)

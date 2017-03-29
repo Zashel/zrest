@@ -32,21 +32,49 @@ class Handler(BaseHTTPRequestHandler):
         cls._rest_app = app
     
     def do_GET(self):
-        response = self.rest_app.action(GET, self.path) #catch 404
-        self.send_response(200, "OK")
+        data = self.rest_app.action(GET, self.path)
+        response = data["response"]
+        if response == 0:
+            response = 200
+        if data["payload"] is None:
+            response = 404
+        self.send_response(response, get_code(response).text)
         self.send_header("Content-Type", "application/json")
+        for header in data["headers"]:
+            self.send_header(header, data["headers"][header])
         self.end_headers()
-        self.wfile.write(bytearray(response, "utf-8"))
+        self.wfile.write(bytearray(data["payload"], "utf-8"))
         return
 
     def do_POST(self):
         data = self.rfile.read(int(self.headers["Content-Length"]))
         data = data.decode("utf-8") #To be changed
-        response = self.rest_app.action(POST, self.path, data=data)
-        self.send_response(201, HTTP201.text)
+        data = self.rest_app.action(POST, self.path, data=data)#Code in Response
+        response = data["response"]
+        if response == 0:
+            response = 201
+        self.send_response(response, get_code(response).text)
         self.send_header("Content-Type", "application/json")
+        for header in data["headers"]:
+            self.send_header(header, data["headers"][header])
         self.end_headers()
-        self.wfile.write(bytearray(response, "utf-8"))
+        self.wfile.write(bytearray(data["payload"], "utf-8"))
+        return
+
+    def do_DELETE(self):
+        data = self.rest_app.action(DELETE, self.path)
+        response = data["response"]
+        print(response)
+        if response == 0:
+            response = 200
+        if response == 200 and data["payload"] == str():
+            data["payload"] = json.dumps({"message": "Deleted"})
+        self.send_response(response, get_code(response).text)
+        self.send_header("Content-Type", "application/json")
+        for header in data["headers"]:
+            self.send_header(header, data["headers"][header])
+        self.end_headers()
+        self.wfile.write(bytearray(data["payload"], "utf-8"))
         return
 
 class App:
@@ -54,6 +82,8 @@ class App:
     def __init__(self):
         self._models = dict()
         self._uris = dict()
+        self._orig_uri = dict()
+        self._params = dict()
         self._handler = Handler
         self._handler.set_app(self)
         self._server = None
@@ -85,7 +115,9 @@ class App:
         if matched is not None:
             filter = matched.groupdict()
             filter.update(dict(parse_qsl(parsed.query)))
-            return {"uri":data.re.pattern, "methods": self._uris[data.re.pattern], "filter": filter}
+            return {"uri":matched.re.pattern,
+                    "methods": self._uris[data.re.pattern],
+                    "filter": filter}
 
     def get_model(self, model):
         return self._models(model)
@@ -115,6 +147,8 @@ class App:
         compilation = re.compile(final_uri, re.IGNORECASE)  # May raise SyntaxError
         self._uris[final_uri] = dict(zip(ALL, [not_implemented for x in range(0, 5)]))
         self._re[compilation] = final_uri
+        self._params[final_uri] = prepare_params
+        self._orig_uri[final_uri] = uri
 
         for verb in allow:
             self._uris[final_uri][verb] = model.__getattribute__(verb.lower())
@@ -122,13 +156,29 @@ class App:
         print("Set Model {}".format(name))
 
     def action(self, verb, uri, **kwargs):
+        final = {"response": 0, # 0 is decided by do_X of the Handler
+                 "headers": dict(),
+                 "payload": str()
+                 }
         parsed = self.parse_uri(uri)
         kwargs.update({"filter": parsed["filter"]})
         kwargs["filter"] = json.dumps(kwargs["filter"])
         if parsed is None:
-            return HTTP404
-        data = parsed["methods"][verb](**kwargs)
-        return data
+            final["response"] = 404
+        else:
+            final["payload"] = parsed["methods"][verb](**kwargs)
+            if verb == DELETE:
+                print("payload: {}".format(final["payload"]))
+            if final["payload"] not in (None, str()):
+                payload = json.loads(final["payload"])
+            params = self._params[parsed["uri"]]
+            location = self._orig_uri[parsed["uri"]]
+            location = location.strip("^").strip("$")
+            if verb == POST and len(params) > 0:
+                for param in params:
+                    location = location.replace(param, str(payload[param[1:-1]]))
+            final["headers"]["Location"] = location
+        return final #TODO Normalizar Datos a recibir. Diccionario con "response", "headers", "payload"
 
     @threadize
     def run(self, addr, port):
