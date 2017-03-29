@@ -61,6 +61,36 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(bytearray(data["payload"], "utf-8"))
         return
 
+    def do_PUT(self):
+        data = self.rfile.read(int(self.headers["Content-Length"]))
+        data = data.decode("utf-8") #To be changed
+        data = self.rest_app.action(PUT, self.path, data=data)#Code in Response
+        response = data["response"]
+        if response == 0:
+            response = 200
+        self.send_response(response, get_code(response).text)
+        self.send_header("Content-Type", "application/json")
+        for header in data["headers"]:
+            self.send_header(header, data["headers"][header])
+        self.end_headers()
+        self.wfile.write(bytearray(data["payload"], "utf-8"))
+        return
+
+    def do_PATCH(self):
+        data = self.rfile.read(int(self.headers["Content-Length"]))
+        data = data.decode("utf-8") #To be changed
+        data = self.rest_app.action(PATCH, self.path, data=data)#Code in Response
+        response = data["response"]
+        if response == 0:
+            response = 200
+        self.send_response(response, get_code(response).text)
+        self.send_header("Content-Type", "application/json")
+        for header in data["headers"]:
+            self.send_header(header, data["headers"][header])
+        self.end_headers()
+        self.wfile.write(bytearray(data["payload"], "utf-8"))
+        return
+
     def do_DELETE(self):
         data = self.rest_app.action(DELETE, self.path)
         response = data["response"]
