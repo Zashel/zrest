@@ -333,7 +333,7 @@ class ShelveModel(RestfulBaseInterface):
             for reg in registries:
                 try:
                     old_data = self._fetch({reg}, shelf)[0]
-                except ItemError:
+                except KeyError:
                     continue
                 else:
                     if isinstance(old_data, dict): # Verified twice. It has to be a dict
@@ -376,7 +376,7 @@ class ShelveModel(RestfulBaseInterface):
             for reg in registries:
                 try:
                     old_data = self._fetch({reg}, shelf)
-                except ItemError:
+                except KeyError:
                     continue
                 else:
                     if old_data != list():

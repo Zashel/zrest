@@ -30,7 +30,8 @@ class Handler(BaseHTTPRequestHandler):
     @classmethod
     def set_app(cls, app):
         cls._rest_app = app
-    
+
+    #TODO: Do not repeat myself!
     def do_GET(self):
         data = self.rest_app.action(GET, self.path)
         response = data["response"]

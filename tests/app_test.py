@@ -9,7 +9,7 @@ from zrest.server import App
 from zrest.datamodels.shelvemodels import ShelveModel
 from urllib import request
 
-def set_proxies(cls, done=list()):
+def set_proxies(cls, done=list()): #This is going to be moved, it's useful
     if len(done) == 0:
         cls.proxies = request.getproxies()
         if len(cls.proxies) > 0:
@@ -26,6 +26,7 @@ def set_proxies(cls, done=list()):
                 cls.proxies = final_proxies
         done.append(1)
 
+#TODO: Implement HAL HATEOAS http://stateless.co/hal_specification.html
 
 class App_Test(unittest.TestCase):
     @classmethod
@@ -108,7 +109,12 @@ class App_Test(unittest.TestCase):
         req = requests.put("http://localhost:9000/model1/?a=13", json=self.data3)
         self.assertEqual(req.status_code, 200)
         self.assertEqual(req.headers["Content-Type"], "application/json")      
-        self.assertEqual(json.loads(req.text), self.data3id)
+        self.assertEqual(req.text, "") # Returns the current filter, nothing in this case
+        req = requests.put("http://localhost:9000/model1/2", json=self.data3)
+        self.assertEqual(req.status_code, 200)
+        self.assertEqual(req.headers["Content-Type"], "application/json")
+        self.data3id.update({"_id": 2})
+        self.assertEqual(json.loads(req.text), [self.data3id]) # Returns the current data
     
 
 if __name__ == "__main__":
