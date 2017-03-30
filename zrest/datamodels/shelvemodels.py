@@ -120,10 +120,11 @@ class ShelveModel(RestfulBaseInterface):
     @name.setter
     def name(self, value):
         self._wait_to_block(self._meta_path)
-        self._keep_alive(self._meta_file)
+        self._keep_alive(self._meta_path)
         if self._name == None:
             with shelve_open(self._meta_path) as shelf:
                 shelf["name"] = value
+                print("Name setted to {}".format(value))
         self._alive = False
         self._name = value
 
@@ -303,11 +304,15 @@ class ShelveModel(RestfulBaseInterface):
 
     def _check_child(self, data):
         if self._as_child:
+            print("Child checked!")
             for foreign_key in self._as_child:
                 if not foreign_key.field in data:
+                    print("Foreign key not in data!")
                     return 1
                 else:
-                    foreign = self.fetch({"_id": data[foreign_key.field]}) # Change to header
+                    print("Foreign key:{}".format(data[foreign_key.field]))
+                    foreign = foreign_key.foreign.fetch({"_id": data[foreign_key.field]}) # Change to header
+                    print("Foreign: {}".format(foreign))
                     if not foreign:
                         return 2
         return 0
@@ -596,10 +601,10 @@ class ShelveForeign(RestfulBaseInterface):
         foreign_name = self.foreign.name+"_"
         child_name = self.child.name+"_"
         for field in filter:
-            for name, filter in ((foreign_name, foreign_filter),
+            for name, sub_filter in ((foreign_name, foreign_filter),
                                  (child_name, child_filter)):
                 if field.startswith(name) is True:
-                    filter[field.strip(name)] = filter[field]
+                    sub_filter[field.strip(name)] = filter[field]
         if self.field in child_filter:
             foreign_filter["_id"] = child_filter[self.field]
         return {"foreign": foreign_filter,

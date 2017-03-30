@@ -119,7 +119,7 @@ class App:
         self._handler.set_app(self)
         self._server = None
         self._re = dict()
-        self._params_searcher = re.compile(r".*<(?P<param>[\w]*)>.*")
+        self._params_searcher = re.compile(r"<(?P<param>[\w]*)>")
 
     def parse_uri(self, uri):
         """Gets the uri and returns the specified item in self_uris dictionary
@@ -132,6 +132,7 @@ class App:
         final_data = list()
         path = parsed.path.strip(".")
         for expr in self._re:
+            print(expr.pattern)
             data = expr.match(path)
             if data is not None:
                 final_data.append(data)
@@ -164,15 +165,16 @@ class App:
 
         """
         assert isinstance(model, RestfulBaseInterface)
+        if hasattr(model, "name") is True:
+            model.name = name
         self._models[name] = model
-        re_params = self._params_searcher.match(uri)
-        params = list()
-        if re_params is not None:
-            params = re_params.groups("param")
+        params = self._params_searcher.findall(uri)
+        print(params)
         prepare_params = dict()
         for param in params:
             prepare_params["<{}>".format(param)] = r"(?P<{}>[\w_]*)?".format(param)
         final_uri = uri
+        print(prepare_params)
         for param in prepare_params:
             final_uri = final_uri.replace(param, prepare_params[param])
         compilation = re.compile(final_uri, re.IGNORECASE)  # May raise SyntaxError

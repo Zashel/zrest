@@ -122,7 +122,7 @@ class App_Test(unittest.TestCase):
     def setUpClass(cls):
         cls.app = App()
         cls.path_customers = "extrafiles/app_test/customers"
-        cls.path_invoices = "extrafiles/app_test/customers"
+        cls.path_invoices = "extrafiles/app_test/invoices"
         cls.app.set_model(ShelveModel(cls.path_customers,
                                       2,
                                       index_fields=["nombre", "dni"],
@@ -139,14 +139,16 @@ class App_Test(unittest.TestCase):
                                         cls.app._models["invoices"],
                                         "cliente"),
                           "customers/invoices",
-                          "^/customers/<customers_dni>/invoices/<invoices_id>$")
+                          "^/customers/<customers_dni>/invoices/<invoices__id>$")
         cls.app.run("127.0.0.1", 9000)
 
     @classmethod
     def tearDownClass(cls):
         cls.app.shutdown()
         time.sleep(0.05)
-        shutil.rmtree(cls.path)
+        shutil.rmtree(cls.path_customers)
+        shutil.rmtree(cls.path_invoices)
+
 
     def test_0_post(self):
         req = requests.post("http://localhost:9000/customers/",
@@ -155,6 +157,11 @@ class App_Test(unittest.TestCase):
         print(req.text)
         req = requests.post("http://localhost:9000/invoices/",
                             json={"cliente":0, "fecha": "01/01/2017", "importe": "10.25 €"})
+        print(req.headers["Location"])
+        print(req.text)
+
+    def test_1_get(self):
+        req = requests.get("http://localhost:9000/customers/12345678H/invoices/")
         print(req.headers["Location"])
         print(req.text)
 
