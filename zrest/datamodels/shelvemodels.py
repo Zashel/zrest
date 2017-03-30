@@ -301,14 +301,27 @@ class ShelveModel(RestfulBaseInterface):
                     if index in shelf:
                         shelf[index] -= {registry}
 
+    def _check_child(self, data):
+        if self._as_child:
+            for foreign_key in self._as_child:
+                if not foreign_key.field in data:
+                    return 1
+                else:
+                    foreign = self.fetch({"_id": data[foreign_key.field]}) # Change to header
+                    if not foreign:
+                        return 2
+        return 0
+
     def new(self, data, **kwargs): #TODO: Errors setting new data
         """
         Set new given data in the database
         Blocks untill finnish
         :param data: dictionary with given data. Saved as is if self.headers is None
-        :returns: Nothing
+        :returns: New Data
 
         """
+        if self._check_child(data) != 0:
+            return None
         conn_in, conn_out = Pipe(False)
         self._send_pipe(action="new", data=data, pipe=conn_out)
         return conn_in.recv()
@@ -336,9 +349,11 @@ class ShelveModel(RestfulBaseInterface):
         Blocks untill finnish
         :param filter: dictionary with coincidences
         :param data: dictionary with new data. It can be partial.
-        :returns: Nothing
+        :returns: Data replaced
 
         """
+        if self._check_child(data) != 0:
+            return None
         conn_in, conn_out = Pipe(False)
         self._send_pipe(action="replace", filter=filter, data=data, pipe=conn_out)
         return conn_in.recv()
@@ -367,6 +382,8 @@ class ShelveModel(RestfulBaseInterface):
         replace alias
 
         """
+        if self._check_child(data) == 2:
+            return None
         conn_in, conn_out = Pipe(False)
         self._send_pipe(action="edit", filter=filter, data=data, pipe=conn_out)
         return conn_in.recv()
@@ -379,7 +396,7 @@ class ShelveModel(RestfulBaseInterface):
         Deletes data from database which coincides with given filter
         Blocks untill finnish
         :param filter: dictionary with given filter
-        :returns: Nothing
+        :returns: Data
         """
         conn_in, conn_out = Pipe(False)
         self._send_pipe(action="drop", filter=filter, data={}, pipe=conn_out)
@@ -393,6 +410,11 @@ class ShelveModel(RestfulBaseInterface):
                 except KeyError:
                     continue
                 else:
+                    if self._as_foreign:
+                        for item in self._as_foreign:
+                            children = item.children.fetch({item.field: reg})
+                            if item:
+                                continue
                     if old_data != list():
                         self._del_index(old_data, reg)
                         del(file[str(reg)])
@@ -578,9 +600,16 @@ class ShelveForeign(RestfulBaseInterface):
                                  (child_name, child_filter)):
                 if field.startswith(name) is True:
                     filter[field.strip(name)] = filter[field]
-
+        if self.field in child_filter:
+            foreign_filter["_id"] = child_filter[self.field]
         return {"foreign": foreign_filter,
                 "child": child_filter}
+
+    def _unfilter_child(self, filter):
+        final = dict()
+        for key in filter:
+            final["{}_{}".format(self.child.name, key)] = filter[key]
+        return final
 
     def fetch(self, filter, **kwargs):
         """
