@@ -198,8 +198,6 @@ class App:
             final["response"] = 404
         else:
             final["payload"] = parsed["methods"][verb](**kwargs)
-            if verb == DELETE:
-                print("payload: {}".format(final["payload"]))
             if final["payload"] not in (None, str()):
                 payload = json.loads(final["payload"])
             params = self._params[parsed["uri"]]

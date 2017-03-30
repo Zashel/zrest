@@ -25,7 +25,7 @@ class ShelveModel_Test(unittest.TestCase):
     def setUpClass(cls):
         cls.path = r"extrafiles/shelvemodel/"
         shutil.rmtree(cls.path, True)
-        cls.model = ShelveModel(cls.path, 2, index_fields=["a", "b"])
+        cls.model = ShelveModel(cls.path, 2, index_fields=["a", "b"], name="ShelveModel")
         cls.model1 = ShelveModel(cls.path)
         cls.model2 = ShelveModel(cls.path)
         cls.model3 = ShelveModel(cls.path)

@@ -27,7 +27,7 @@ class ShelveModel(RestfulBaseInterface):
     To use with zrest.
 
     """
-    def __init__(self, filepath, groups=10, *, index_fields=None, headers=None):
+    def __init__(self, filepath, groups=10, *, index_fields=None, headers=None, name=None):
         """
         Initializes ShelveModel
         
@@ -50,6 +50,7 @@ class ShelveModel(RestfulBaseInterface):
         self._close = False
         self._headers = headers
         self._headers_checked = False
+        self._name = name
         if index_fields is None:
             self._index_fields = list()
         else:
@@ -75,6 +76,8 @@ class ShelveModel(RestfulBaseInterface):
         with shelve_open(self._meta_path, "r") as shelf:
             self._groups = shelf["groups"]
         time.sleep(0.05)
+        self._as_foreign = list()
+        self._as_child = list()
 
     def __len__(self):
         final = None
@@ -107,10 +110,12 @@ class ShelveModel(RestfulBaseInterface):
         return final
 
     @property
-    def name(self): #This has to be implemeneted in any way
-        with shelve_open(self._meta_path, "r") as shelf:
-            name = shelf["class"]
-        return name
+    def name(self): #This has to be implemeneted in any way -> For foreign keys
+        return self._name
+
+    @name.setter
+    def name(self, value):
+        self._name = value
 
     @property
     def index_fields(self):
@@ -228,7 +233,7 @@ class ShelveModel(RestfulBaseInterface):
     def _send_pipe(self, **kwargs):
         self._pipe_out.send(kwargs)
 
-    def fetch(self, filter):
+    def fetch(self, filter, **kwargs):
         """
         Gives the result of a query.
         :param filter: dictionary with wanted coincidences
@@ -286,7 +291,7 @@ class ShelveModel(RestfulBaseInterface):
                     if index in shelf:
                         shelf[index] -= {registry}
 
-    def new(self, data): #TODO: Errors setting new data
+    def new(self, data, **kwargs): #TODO: Errors setting new data
         """
         Set new given data in the database
         Blocks untill finnish
@@ -315,7 +320,7 @@ class ShelveModel(RestfulBaseInterface):
             file["next"] = next_ + 1
         self._set_index(data, registry)
 
-    def replace(self, filter, data):
+    def replace(self, filter, data, **kwargs):
         """
         Replaces all data which coincides with given filter with given data
         Blocks untill finnish
@@ -347,8 +352,7 @@ class ShelveModel(RestfulBaseInterface):
                         file[str(reg)] = new_data
                         self._set_index(new_data, reg)
 
-
-    def edit(self, filter, data):
+    def edit(self, filter, data, **kwargs):
         """
         replace alias
 
@@ -360,7 +364,7 @@ class ShelveModel(RestfulBaseInterface):
     def _edit(self, data, registries, shelf):
         self._replace(data, registries, shelf)
 
-    def drop(self, filter):
+    def drop(self, filter, **kwargs):
         """
         Deletes data from database which coincides with given filter
         Blocks untill finnish
@@ -498,6 +502,150 @@ class ShelveModel(RestfulBaseInterface):
             time.sleep(0.5)
         self.writer.join()
 
+    def _set_as_foreign(self, foreign_key):
+        self._as_foreign.append(foreign_key)
+
+    def _set_as_child(self, foreign_key):
+        self._as_child.append(foreign_key)
+
     
+class ShelveForeign(RestfulBaseInterface):
+    """
+    Foreign Key for ShelveModel. Too Cute to Be.
+
+    """
+    def __init__(self, foreign_model, child_model, child_field, alias="_id"):
+        """
+        Instantiates ShelveForeign
+
+        :param foreign_model: ShelveModel relationed with child.
+                              IE: Customer with Invoices
+        :param child_model: ShelveModel with a field linked to foreign_model
+                            IE: Invoices of Customers
+        :param child_field: Field from child_model linked to _id in foreign_model.
+                            It may exist in advance
+        :param alias: Existing field in foreign_model returned as data of child_field
+                      _id by default
+        """
+        assert isinstance(foreign_model, ShelveModel)
+        assert isinstance(child_model,  ShelveModel)
+        assert isinstance(child_field, str)
+        assert isinstance(alias, str)
+
+        RestfulBaseInterface.__init__(self)
+        self._foreign_model = foreign_model # foreign
+        self._child_model = child_model # child
+        self._child_field = child_field # field
+        self._alias = alias #alias
+
+        self.foreign._set_as_foreign(self)
+        self.child._set_as_child(self)
+
+    @property
+    def foreign(self):
+        return self._foreign_model
+
+    @property
+    def child(self):
+        return self._child_model
+
+    @property
+    def field(self):
+        return self._child_field
+
+    @property
+    def alias(self):
+        return self._alias
 
 
+    def _filter(self, filter):
+        foreign_filter = dict()
+        child_filter = dict()
+        foreign_name = self.foreign.name+"_"
+        child_name = self.child.name+"_"
+        for field in filter:
+            for name, filter in ((foreign_name, foreign_filter),
+                                 (child_name, child_filter)):
+                if field.startswith(name) is True:
+                    filter[field.strip(name)] = filter[field]
+
+        return {"foreign": foreign_filter,
+                "child": child_filter}
+
+    def fetch(self, filter, **kwargs):
+        """
+        Fetches everything related
+
+        :param filter: Filter to apply
+        :param kwargs: Doesn't apply
+        :return: Data Filtered
+
+        """
+        filter = self._filter(filter)
+        foreign_data = self.foreign.fetch(filter["foreign"])
+        for data in foreign_data:
+            if "_id" in data:
+                child_filter = filter["child"].copy()
+                child_filter.update({self.field: data["_id"]})
+                child_data = self.child.fetch(child_filter)
+                data[self.child.name] = child_data
+        return foreign_data
+
+    def new(self, data, *, filter, **kwargs):
+        """
+        Creates new child associated to a single foreign
+
+        :param data: New data
+        :param filter: Filter to apply to foreign, usually id
+        :param kwargs: Doesn't apply
+        :return: foreign data with all children asociated
+
+        """
+        filter = self._filter(filter)
+        foreign_data = self.foreign.fetch(filter["foreign"])
+        if len(foreign_data) == 1:
+            for item in foreign_data:
+                if "_id" in item:
+                    data.update({self._child_field: item["_id"]})
+                    foreign_data[self.child.name] = self.child.new(data)
+        return foreign_data
+
+    def drop(self, filter, **kwargs):
+        """
+        Drops all children of all foreign got by filter
+
+        :param filter: Filter to apply to all
+        :param kwargs: Doesn't apply
+        :return: foreign data with all children asociated
+
+        """
+        filter = self._filter(filter)
+        foreign_data = self.foreign.fetch(filter["foreign"])
+        child_filter = filter["child"]
+        for item in foreign_data:
+            if "_id" in item:
+                child_filter.update({self._child_field: item["_id"]})
+                foreign_data[self.child.name] = self.child.drop(child_filter)
+
+    def replace(self, filter, data, **kwargs):
+        """
+        Replaces all children of all foreign got by filter with given data
+
+        :param filter: Filter to apply to all
+        :param data: New data to apply to all children
+        :param kwargs: Doesn't apply
+        :return: All foreigns with all children
+
+        """
+        old_data = self.fetch(filter)
+        for foreign in old_data:
+            for children in foreign:
+                foreign[children].update(data)
+                self.child.replace({"_id":foreign[children]["_id"]}, foreign[children])
+        return self.fetch(filter)
+
+    def edit(self, filter, data, **kwargs):
+        """
+        Alias of replace
+        """
+        return self.replace(self, filter, data, **kwargs)

@@ -15,7 +15,7 @@ class ModelBaseInterface:
 
     """
 
-    def fetch(self, filter):
+    def fetch(self, filter, **kwargs):
         """
         To be implemented in final models
         :param item:
@@ -24,7 +24,7 @@ class ModelBaseInterface:
 
         """
 
-    def new(self, data):
+    def new(self, data, **kwargs):
         """
         Set new data to model
         :param data: data to be
@@ -33,7 +33,7 @@ class ModelBaseInterface:
 
         """
 
-    def replace(self, filter, data):
+    def replace(self, filter, data, **kwargs):
         """
         Replaces all filtered data with given data
         :param filter: filter to be applied to
@@ -43,7 +43,7 @@ class ModelBaseInterface:
 
         """
 
-    def edit(self, filter, data):
+    def edit(self, filter, data, **kwargs):
         """
         Updates all filtered data with given data
         :param filter: filter to be applied to
@@ -53,7 +53,7 @@ class ModelBaseInterface:
 
         """
 
-    def drop(self, filter):
+    def drop(self, filter, **kwargs):
         """
         Removes filtered data
         :param filter:  Filter to remove
@@ -75,7 +75,7 @@ class RestfulBaseInterface(ModelBaseInterface):
     :method patch:
 
     """
-    def _filter(self, filter, data):
+    def _filter(self, filter):
         """
         Filter method to get data
         :param filter: filter dictionary
@@ -123,7 +123,7 @@ class RestfulBaseInterface(ModelBaseInterface):
         :return: data
 
         """
-        data = self._return(self.fetch(self._parse(filter, _type)), _type)
+        data = self._return(self.fetch(self._parse(filter, _type), **kwargs), _type)
         return data
 
     def post(self, *, data, _type="application/json", **kwargs):
@@ -133,7 +133,7 @@ class RestfulBaseInterface(ModelBaseInterface):
         :return: Data created
 
         """
-        data = self._return(self.new(self._parse(data, _type)), _type)
+        data = self._return(self.new(self._parse(data, _type), **kwargs), _type)
         return data
 
     def put(self, *, filter, data, _type="application/json", **kwargs):
@@ -145,7 +145,7 @@ class RestfulBaseInterface(ModelBaseInterface):
         :return: Data updated
 
         """
-        data = self._return(self.replace(self._parse(filter, _type), self._parse(data, _type)), _type)
+        data = self._return(self.replace(self._parse(filter, _type), self._parse(data, _type), **kwargs), _type)
         return data
 
     def delete(self, *, filter, _type="application/json", **kwargs):
@@ -155,7 +155,7 @@ class RestfulBaseInterface(ModelBaseInterface):
         :return: Data removed, usually nothing.
 
         """
-        data = self.drop(self._parse(filter, _type))
+        data = self.drop(self._parse(filter, _type), **kwargs)
         return self._return(data, _type)
 
     def patch(self, *, filter, data, _type="application/json", **kwargs):
@@ -167,5 +167,5 @@ class RestfulBaseInterface(ModelBaseInterface):
         :return: Data patched
 
         """
-        data = self.edit(self._parse(filter, _type), self._parse(data, _type))
+        data = self.edit(self._parse(filter, _type), self._parse(data, _type), **kwargs)
         return self._return(data, _type)
