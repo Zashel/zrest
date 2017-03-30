@@ -66,6 +66,7 @@ class ShelveModel(RestfulBaseInterface):
                 shelf["next"] = int()
                 shelf["groups"] = groups
                 shelf["class"] = self.__class__.__name__
+                shelf["name"] = self._name
             for index in self.index_fields:
                 with shelve_open(self._index_path(index)) as shelf:
                     shelf["filepath"] = self._index_path(index)
@@ -110,11 +111,20 @@ class ShelveModel(RestfulBaseInterface):
         return final
 
     @property
-    def name(self): #This has to be implemeneted in any way -> For foreign keys
+    def name(self):
+        if self._name == None:
+            with shelve_open(self._meta_path, "r") as shelf:
+                self._name = shelf["name"]
         return self._name
 
     @name.setter
     def name(self, value):
+        self._wait_to_block(self._meta_path)
+        self._keep_alive(self._meta_file)
+        if self._name == None:
+            with shelve_open(self._meta_path) as shelf:
+                shelf["name"] = value
+        self._alive = False
         self._name = value
 
     @property

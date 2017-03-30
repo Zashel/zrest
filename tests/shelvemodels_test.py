@@ -170,7 +170,7 @@ class ShelveModel_Test_2(ShelveModel_Test):
         cls.path = r"extrafiles/shelvemodel2/"
         shutil.rmtree(cls.path, True)
         cls.headers = ["a", "b", "c"]
-        cls.model = ShelveModel(cls.path, 2, index_fields=["a", "b"], headers=cls.headers)
+        cls.model = ShelveModel(cls.path, 2, index_fields=["a", "b"], headers=cls.headers, name="ShelveModel")
         cls.model1 = ShelveModel(cls.path)
         cls.model2 = ShelveModel(cls.path)
         cls.model3 = ShelveModel(cls.path)
