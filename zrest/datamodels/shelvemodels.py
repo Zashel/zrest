@@ -333,7 +333,7 @@ class ShelveModel(RestfulBaseInterface):
             for reg in registries:
                 try:
                     old_data = self._fetch({reg}, shelf)[0]
-                except KeyError:
+                except IndexError:
                     continue
                 else:
                     if isinstance(old_data, dict): # Verified twice. It has to be a dict
@@ -400,7 +400,6 @@ class ShelveModel(RestfulBaseInterface):
                         if str(filter[field]) in index:
                             subfilter = index[str(filter[field])]
             final_set &= subfilter
-        print("Final_Set:{}".format(final_set))
         return final_set
 
     def _get_datafile(self, filter):
@@ -469,7 +468,8 @@ class ShelveModel(RestfulBaseInterface):
                                 continue
                         except (KeyboardInterrupt, SystemExit):
                             raise
-                        except:
+                        except Exception as e:
+                            print(e)
                             time.sleep(0.1)
                             continue
                         else:
