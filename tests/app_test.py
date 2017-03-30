@@ -6,7 +6,7 @@ import sys
 import shutil
 import getpass
 from zrest.server import App
-from zrest.datamodels.shelvemodels import ShelveModel
+from zrest.datamodels.shelvemodels import ShelveModel, ShelveForeign
 from urllib import request
 
 def set_proxies(cls, done=list()): #This is going to be moved, it's useful
@@ -115,7 +115,48 @@ class App_Test(unittest.TestCase):
         self.assertEqual(req.headers["Content-Type"], "application/json")
         self.data3id.update({"_id": 2})
         self.assertEqual(json.loads(req.text), [self.data3id]) # Returns the current data
-    
+
+
+class App_Test(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.app = App()
+        cls.path_customers = "extrafiles/app_test/customers"
+        cls.path_invoices = "extrafiles/app_test/customers"
+        cls.app.set_model(ShelveModel(cls.path_customers,
+                                      2,
+                                      index_fields=["nombre", "dni"],
+                                      headers=["nombre", "dni"]),
+                          "customers",
+                          "^/customers/<dni>$",)
+        cls.app.set_model(ShelveModel(cls.path_invoices,
+                                      2,
+                                      index_fields=["cliente", "fecha", "importe"],
+                                      headers=["cliente", "fecha", "importe"]),
+                          "invoices",
+                          "^/invoices/<_id>$", )
+        cls.app.set_model(ShelveForeign(cls.app._models["customers"],
+                                        cls.app._models["invoices"],
+                                        "cliente"),
+                          "customers/invoices",
+                          "^/customers/<customers_dni>/invoices/<invoices_id>$")
+        cls.app.run("127.0.0.1", 9000)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.app.shutdown()
+        time.sleep(0.05)
+        shutil.rmtree(cls.path)
+
+    def test_0_post(self):
+        req = requests.post("http://localhost:9000/customers/",
+                            json={"dni": "12345678H", "nombre": "Yo, yo mismo"})
+        print(req.headers["Location"])
+        print(req.text)
+        req = requests.post("http://localhost:9000/invoices/",
+                            json={"cliente":0, "fecha": "01/01/2017", "importe": "10.25 €"})
+        print(req.headers["Location"])
+        print(req.text)
 
 if __name__ == "__main__":
     unittest.main()

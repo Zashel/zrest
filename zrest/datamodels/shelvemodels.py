@@ -688,3 +688,6 @@ class ShelveForeign(RestfulBaseInterface):
         Alias of replace
         """
         return self.replace(self, filter, data, **kwargs)
+
+    def close(self):
+        pass
