@@ -95,7 +95,6 @@ class Handler(BaseHTTPRequestHandler):
     def do_DELETE(self):
         data = self.rest_app.action(DELETE, self.path)
         response = data["response"]
-        print(response)
         if response == 0:
             response = 200
         if response == 200 and data["payload"] == str():
@@ -132,7 +131,6 @@ class App:
         final_data = list()
         path = parsed.path.strip(".")
         for expr in self._re:
-            print(expr.pattern)
             data = expr.match(path)
             if data is not None:
                 final_data.append(data)
@@ -169,12 +167,10 @@ class App:
             model.name = name
         self._models[name] = model
         params = self._params_searcher.findall(uri)
-        print(params)
         prepare_params = dict()
         for param in params:
             prepare_params["<{}>".format(param)] = r"(?P<{}>[\w_]*)?".format(param)
         final_uri = uri
-        print(prepare_params)
         for param in prepare_params:
             final_uri = final_uri.replace(param, prepare_params[param])
         compilation = re.compile(final_uri, re.IGNORECASE)  # May raise SyntaxError
@@ -185,7 +181,6 @@ class App:
 
         for verb in allow:
             self._uris[final_uri][verb] = model.__getattribute__(verb.lower())
-
         print("Set Model {}".format(name))
 
     def action(self, verb, uri, **kwargs):
@@ -203,12 +198,26 @@ class App:
             if final["payload"] not in (None, str()):
                 payload = json.loads(final["payload"])
             params = self._params[parsed["uri"]]
-            location = self._orig_uri[parsed["uri"]]
-            location = location.strip("^").strip("$")
-            if verb == POST and len(params) > 0:
+            if verb == POST:
+                if isinstance(payload, list): #To be changed with HAL HATEOAS
+                    payload = payload[0]
+                location = self._orig_uri[parsed["uri"]]
+                location = location.strip("^").strip("$")
                 for param in params:
-                    location = location.replace(param, str(payload[param[1:-1]]))
-            final["headers"]["Location"] = location
+                    s_param = param[1:-1]
+                    named = str()
+                    for name in self._models:
+                        if s_param.startswith(name+"_") and len(s_param) > len(name+"_"):
+                            s_param = s_param[len(name+"_"):]
+                            named = name
+                    if named in payload:
+                        pl = payload[named]
+                        if isinstance(pl, list):
+                            pl = pl[0] #What a headache
+                    else:
+                        pl = payload
+                    location = location.replace(param, str(pl[s_param]))
+                final["headers"]["Location"] = location
         return final #TODO Normalizar Datos a recibir. Diccionario con "response", "headers", "payload"
 
     @threadize

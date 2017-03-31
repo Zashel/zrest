@@ -124,7 +124,6 @@ class ShelveModel(RestfulBaseInterface):
         if self._name == None:
             with shelve_open(self._meta_path) as shelf:
                 shelf["name"] = value
-                print("Name setted to {}".format(value))
         self._alive = False
         self._name = value
 
@@ -304,15 +303,11 @@ class ShelveModel(RestfulBaseInterface):
 
     def _check_child(self, data):
         if self._as_child:
-            print("Child checked!")
             for foreign_key in self._as_child:
                 if not foreign_key.field in data:
-                    print("Foreign key not in data!")
                     return 1
                 else:
-                    print("Foreign key:{}".format(data[foreign_key.field]))
                     foreign = foreign_key.foreign.fetch({"_id": data[foreign_key.field]}) # Change to header
-                    print("Foreign: {}".format(foreign))
                     if not foreign:
                         return 2
         return 0
@@ -604,7 +599,7 @@ class ShelveForeign(RestfulBaseInterface):
             for name, sub_filter in ((foreign_name, foreign_filter),
                                  (child_name, child_filter)):
                 if field.startswith(name) is True:
-                    sub_filter[field.strip(name)] = filter[field]
+                    sub_filter[field[len(name):]] = filter[field]
         if self.field in child_filter:
             foreign_filter["_id"] = child_filter[self.field]
         return {"foreign": foreign_filter,
@@ -646,12 +641,12 @@ class ShelveForeign(RestfulBaseInterface):
 
         """
         filter = self._filter(filter)
-        foreign_data = self.foreign.fetch(filter["foreign"])
-        if len(foreign_data) == 1:
-            for item in foreign_data:
-                if "_id" in item:
-                    data.update({self._child_field: item["_id"]})
-                    foreign_data[self.child.name] = self.child.new(data)
+        foreign_data = self.foreign.fetch(filter["foreign"])[0]
+        for item in foreign_data:
+            if "_id" == item:
+                data.update({self._child_field: foreign_data["_id"]})
+        if self._child_field in data:
+            foreign_data[self.child.name] = self.child.new(data)
         return foreign_data
 
     def drop(self, filter, **kwargs):
@@ -669,7 +664,8 @@ class ShelveForeign(RestfulBaseInterface):
         for item in foreign_data:
             if "_id" in item:
                 child_filter.update({self._child_field: item["_id"]})
-                foreign_data[self.child.name] = self.child.drop(child_filter)
+                item[self.child.name] = self.child.drop(child_filter)
+        return self.fetch(filter)
 
     def replace(self, filter, data, **kwargs):
         """
@@ -681,18 +677,19 @@ class ShelveForeign(RestfulBaseInterface):
         :return: All foreigns with all children
 
         """
-        old_data = self.fetch(filter)
+        old_data = self.fetch(filter) #TODO HATEOAS
         for foreign in old_data:
-            for children in foreign:
-                foreign[children].update(data)
-                self.child.replace({"_id":foreign[children]["_id"]}, foreign[children])
+            if self.child.name in foreign:
+                for children in foreign[self.child.name]:
+                    children.update(data)
+                    self.child.replace({"_id":children["_id"]}, children)
         return self.fetch(filter)
 
     def edit(self, filter, data, **kwargs):
         """
         Alias of replace
         """
-        return self.replace(self, filter, data, **kwargs)
+        return self.replace(filter, data, **kwargs)
 
     def close(self):
         pass

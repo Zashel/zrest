@@ -156,14 +156,35 @@ class App_Test(unittest.TestCase):
         print(req.headers["Location"])
         print(req.text)
         req = requests.post("http://localhost:9000/invoices/",
-                            json={"cliente":0, "fecha": "01/01/2017", "importe": "10.25 €"})
+                            json={"cliente":0, "fecha": "01/01/2017", "importe": "10.25"})
         print(req.headers["Location"])
         print(req.text)
 
-    def test_1_get(self):
+    def test_1_post_foreign(self):
+        req = requests.post("http://localhost:9000/customers/12345678H/invoices/",
+                            json={"fecha": "01/02/2017", "importe": "16.30"})
+        print(req.headers["Location"]) #Mal
+        print(req.text) #Mal
+
+    def test_2_get(self):
         req = requests.get("http://localhost:9000/customers/12345678H/invoices/")
-        print(req.headers["Location"])
         print(req.text)
+
+    def test_3_put(self):
+        req = requests.put("http://localhost:9000/customers/12345678H/invoices/1",
+                           json={"fecha": "01/03/2017", "importe": "18.00"})
+        print(req.text)
+
+    def test_4_patch(self):
+        req = requests.patch("http://localhost:9000/customers/12345678H/invoices/1",
+                           json={"importe": "00.00"})
+        print(req.text)
+
+    def test_5_delete(self):
+        req = requests.delete("http://localhost:9000/customers/12345678H/invoices/1")
+        print(req.text)
+
+
 
 if __name__ == "__main__":
     unittest.main()

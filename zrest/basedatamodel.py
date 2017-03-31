@@ -145,8 +145,8 @@ class RestfulBaseInterface(ModelBaseInterface):
         :return: Data updated
 
         """
-        data = self._return(self.replace(self._parse(filter, _type), self._parse(data, _type), **kwargs), _type)
-        return data
+        data = self.replace(self._parse(filter, _type), self._parse(data, _type), **kwargs)
+        return self._return(data, _type)
 
     def delete(self, *, filter, _type="application/json", **kwargs):
         """
