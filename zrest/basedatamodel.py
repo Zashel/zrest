@@ -83,7 +83,7 @@ class RestfulBaseInterface(ModelBaseInterface):
 
         """
 
-    def _parse(self, data, _type="application/json"):
+    def _parse(self, data):
         """
         Inner method to parse given a type of information
 
@@ -93,79 +93,68 @@ class RestfulBaseInterface(ModelBaseInterface):
         :raises: HTTPResponseError(HTTP415) if type not supported
 
         """
-        if _type == "application/json": #TODO: XML Parsing
-            return json.loads(data)
-        else:
-            return json.loads(data)
+        return json.loads(data)
 
-    def _return(self, data, _type="application/json"):
+    def _return(self, data):
         """
-        Inner method to return data in especified type
-        "application/json" by default
+        Inner method to return data parsed as json
 
         :param data: data to return
-        :param _type: type to return, "application/json" by default
         :return: data in specified type
 
         """
         if not data:
             data = str()
-        if _type == "application/json" and data: #TODO: XML
-            return json.dumps(data)
-        else:
-            return data
+        return json.dumps(data)
 
-    def get(self, *, filter, _type="application/json", **kwargs):
+    def get(self, *, filter, **kwargs):
         """
         For GET methods
         :param filter: dictionary
-        :param _type:
         :return: data
 
         """
-        data = self._return(self.fetch(self._parse(filter, _type), **kwargs), _type)
+        data = self._return(self.fetch(self._parse(filter), **kwargs))
         return data
 
-    def post(self, *, data, _type="application/json", **kwargs):
+    def post(self, *, data, **kwargs):
         """
         For POST Methods
         :param data: data to insert in model
         :return: Data created
 
         """
-        data = self._return(self.new(self._parse(data, _type), **kwargs), _type)
+        data = self._return(self.new(self._parse(data), **kwargs))
         return data
 
-    def put(self, *, filter, data, _type="application/json", **kwargs):
+    def put(self, *, filter, data, **kwargs):
         """
         For PUT methods
         :param filter:  Filter dictionary to data
         :param data: data to update
-        :param _type: type of given data
         :return: Data updated
 
         """
-        data = self.replace(self._parse(filter, _type), self._parse(data, _type), **kwargs)
-        return self._return(data, _type)
+        data = self.replace(self._parse(filter), self._parse(data), **kwargs)
+        return self._return(data)
 
-    def delete(self, *, filter, _type="application/json", **kwargs):
+    def delete(self, *, filter, **kwargs):
         """
         For DELETE methods
         :param filter: Filter dictionary to delete
         :return: Data removed, usually nothing.
 
         """
-        data = self.drop(self._parse(filter, _type), **kwargs)
-        return self._return(data, _type)
+        data = self.drop(self._parse(filter), **kwargs)
+        return self._return(data)
 
-    def patch(self, *, filter, data, _type="application/json", **kwargs):
+    def patch(self, *, filter, data, **kwargs):
         """
         For PATCH methods
         :param filter: filter dictionary to update
         :param data: data to update to filter
-        :param _type: type of given data
         :return: Data patched
 
         """
-        data = self.edit(self._parse(filter, _type), self._parse(data, _type), **kwargs)
-        return self._return(data, _type)
+        data = self.edit(self._parse(filter), self._parse(data), **kwargs)
+        return self._return(data)
