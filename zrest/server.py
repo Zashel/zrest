@@ -6,6 +6,8 @@ from zashel.utils import threadize
 from urllib.parse import urlparse, parse_qsl
 import re
 import json
+import ssl
+import os
 
 GET = "GET"
 POST = "POST"
@@ -119,6 +121,10 @@ class App:
         self._server = None
         self._re = dict()
         self._params_searcher = re.compile(r"<(?P<param>[\w]*)>")
+        self._key, self._cert = None, None
+
+    def __del__(self):
+        self.close()
 
     def parse_uri(self, uri):
         """Gets the uri and returns the specified item in self_uris dictionary
@@ -220,9 +226,16 @@ class App:
                 final["headers"]["Location"] = location
         return final #TODO Normalizar Datos a recibir. Diccionario con "response", "headers", "payload"
 
+    def set_ssl(self, key, cert):
+        assert os.path.exists(key)
+        assert os.path.exists(cert)
+        self._key, self._cert = key, cert
+
     @threadize
     def run(self, addr, port):
         self._server = HTTPServer((addr, port), self._handler)
+        if self._key is not None and self._cert is not None:
+            ssl.wrap_socket(self._server.socket, self._key, self._cert)
         self._server.serve_forever()
 
     def shutdown(self):
