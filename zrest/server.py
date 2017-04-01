@@ -166,6 +166,7 @@ class App:
         :param uri: uri assigned, in reqular expression format
                     ie: r"/model/<_id>"
                     Don't have to worry about queries.
+        :returns: uri setted as index of all dicts
 
         """
         assert isinstance(model, RestfulBaseInterface)
@@ -180,7 +181,8 @@ class App:
         for param in prepare_params:
             final_uri = final_uri.replace(param, prepare_params[param])
         compilation = re.compile(final_uri, re.IGNORECASE)  # May raise SyntaxError
-        self._uris[final_uri] = dict(zip(ALL, [not_implemented for x in range(0, 5)]))
+        if not final_uri in self._uris:
+            self._uris[final_uri] = dict(zip(ALL, [not_implemented for x in range(0, 5)]))
         self._re[compilation] = final_uri
         self._params[final_uri] = prepare_params
         self._orig_uri[final_uri] = uri
@@ -188,6 +190,34 @@ class App:
         for verb in allow:
             self._uris[final_uri][verb] = model.__getattribute__(verb.lower())
         print("Set Model {}".format(name))
+        return final_uri
+
+    def set_method(self, name, uri, verb, method=None):
+        """Extends the application of a model in the specified URI
+        and verb. You can assign a new method to it.
+
+        :param uri: uri assigned, in reqular expression format
+                    ie: r"/model/<_id>"
+                    Don't have to worry about queries.
+        :param verb: action POST, PUT, PATCH, GET or DELETE #TODO: HEAD and OPTIONS
+        :param method: method to assign. None by default. If specified 
+                       model, it'll take that model's method. Eitherway,
+                       not_implemented will be asigned.
+        :param name: model's name. If it exists, it'll use it's methods
+                     if no other is assigned. If it doesn't exist, It'll
+                     be created as base for implementation.
+
+        """
+        model = None
+        if name in self._models:
+            assert isinstance(self.get_model(model_name), RestfulBaseInterface)
+            model = self.get_model(model_name)
+        if model is None:
+            self._models[name] == RestfulBaseInterface()          
+        final_uri = self.set_model(model, name, uri, allow=[])
+        if method is None:
+            method = model.__getattribute__(verb.lower())
+        self._uris[final_uri][verb] = method
 
     def action(self, verb, uri, **kwargs):
         final = {"response": 0, # 0 is decided by do_X of the Handler

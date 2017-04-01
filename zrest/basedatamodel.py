@@ -104,8 +104,9 @@ class RestfulBaseInterface(ModelBaseInterface):
 
         """
         if not data:
-            data = str()
-        return json.dumps(data)
+            return str()
+        else:
+            return json.dumps(data)
 
     def get(self, *, filter, **kwargs):
         """
