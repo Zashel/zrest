@@ -97,7 +97,6 @@ class App_Test(unittest.TestCase):
         req = requests.delete("http://localhost:9000/model1/0")
         self.assertEqual(req.status_code, 200)
         self.assertEqual(req.headers["Content-Type"], "application/json")
-        self.assertEqual(json.loads(req.text), {"message": "Deleted"})
 
     def test_3_patch(self):
         req = requests.patch("http://localhost:9000/model1/?a=4", json={"c": 9})

@@ -33,80 +33,45 @@ class Handler(BaseHTTPRequestHandler):
     def set_app(cls, app):
         cls._rest_app = app
 
-    #TODO: Do not repeat myself!
-    def do_GET(self):
-        data = self.rest_app.action(GET, self.path)
+    def _prepare(self, action, response_default=200):
+        if action in (POST, PUT, PATCH):
+            data = self.rfile.read(int(self.headers["Content-Length"]))
+            data = data.decode("utf-8") #To be changed
+            data = self.rest_app.action(action, self.path, data=data)
+        else:
+            data = self.rest_app.action(action, self.path)
         response = data["response"]
         if response == 0:
-            response = 200
-        if data["payload"] is None:
+            response = response_default
+        if not data["payload"] and action == GET:
             response = 404
         self.send_response(response, get_code(response).text)
-        self.send_header("Content-Type", "application/json")
-        for header in data["headers"]:
-            self.send_header(header, data["headers"][header])
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        headers =  self.rest_app.headers.copy()
+        headers.update(data["headers"])
+        for header in headers:
+            self.send_header(header, headers[header])
         self.end_headers()
-        self.wfile.write(bytearray(data["payload"], "utf-8"))
+        self.wfile.write(bytearray(data["payload"], "utf-8"))                    
+
+    def do_GET(self):
+        self._prepare(GET)
         return
 
     def do_POST(self):
-        data = self.rfile.read(int(self.headers["Content-Length"]))
-        data = data.decode("utf-8") #To be changed
-        data = self.rest_app.action(POST, self.path, data=data)#Code in Response
-        response = data["response"]
-        if response == 0:
-            response = 201
-        self.send_response(response, get_code(response).text)
-        self.send_header("Content-Type", "application/json")
-        for header in data["headers"]:
-            self.send_header(header, data["headers"][header])
-        self.end_headers()
-        self.wfile.write(bytearray(data["payload"], "utf-8"))
+        self._prepare(POST, 201)
         return
 
     def do_PUT(self):
-        data = self.rfile.read(int(self.headers["Content-Length"]))
-        data = data.decode("utf-8") #To be changed
-        data = self.rest_app.action(PUT, self.path, data=data)#Code in Response
-        response = data["response"]
-        if response == 0:
-            response = 200
-        self.send_response(response, get_code(response).text)
-        self.send_header("Content-Type", "application/json")
-        for header in data["headers"]:
-            self.send_header(header, data["headers"][header])
-        self.end_headers()
-        self.wfile.write(bytearray(data["payload"], "utf-8"))
+        self._prepare(PUT)
         return
 
     def do_PATCH(self):
-        data = self.rfile.read(int(self.headers["Content-Length"]))
-        data = data.decode("utf-8") #To be changed
-        data = self.rest_app.action(PATCH, self.path, data=data)#Code in Response
-        response = data["response"]
-        if response == 0:
-            response = 200
-        self.send_response(response, get_code(response).text)
-        self.send_header("Content-Type", "application/json")
-        for header in data["headers"]:
-            self.send_header(header, data["headers"][header])
-        self.end_headers()
-        self.wfile.write(bytearray(data["payload"], "utf-8"))
+        self._prepare(PATCH)
         return
 
     def do_DELETE(self):
-        data = self.rest_app.action(DELETE, self.path)
-        response = data["response"]
-        if response == 0:
-            response = 200
-        if response == 200 and data["payload"] == str():
-            data["payload"] = json.dumps({"message": "Deleted"})
-        self.send_response(response, get_code(response).text)
-        self.send_header("Content-Type", "application/json")
-        for header in data["headers"]:
-            self.send_header(header, data["headers"][header])
-        self.end_headers()
-        self.wfile.write(bytearray(data["payload"], "utf-8"))
+        self._prepare(DELETE)
         return
 
 class App:
@@ -115,6 +80,8 @@ class App:
         self._models = dict()
         self._uris = dict()
         self._orig_uri = dict()
+        self._name_by_uri = dict()
+        self._simple_uri_by_name = dict()
         self._params = dict()
         self._handler = Handler
         self._handler.set_app(self)
@@ -122,9 +89,20 @@ class App:
         self._re = dict()
         self._params_searcher = re.compile(r"<(?P<param>[\w]*)>")
         self._key, self._cert = None, None
+        self._headers = dict()
 
     def __del__(self):
         self.close()
+
+    @property
+    def headers(self):
+        return self._headers
+
+    def set_headers(self, headers_dict):
+        self._headers.update(headers_dict)
+
+    def set_header(self, key, value):
+        self._headers[key] = value
 
     def parse_uri(self, uri):
         """Gets the uri and returns the specified item in self_uris dictionary
@@ -153,7 +131,8 @@ class App:
             filter.update(dict(parse_qsl(parsed.query)))
             return {"uri":matched.re.pattern,
                     "methods": self._uris[data.re.pattern],
-                    "filter": filter}
+                    "filter": filter,
+                    "params": self._params[data.re.pattern]}
 
     def get_model(self, model):
         return self._models(model)
@@ -186,6 +165,8 @@ class App:
         self._re[compilation] = final_uri
         self._params[final_uri] = prepare_params
         self._orig_uri[final_uri] = uri
+        self._simple_uri_by_name[name] = uri
+        self._name_by_uri[final_uri] = name
 
         for verb in allow:
             self._uris[final_uri][verb] = model.__getattribute__(verb.lower())
@@ -233,7 +214,8 @@ class App:
             final["payload"] = parsed["methods"][verb](**kwargs)
             if final["payload"] not in (None, str()):
                 payload = json.loads(final["payload"])
-            params = self._params[parsed["uri"]]
+            params = parsed["params"]
+            #TODO: Prepare HAL
             if verb == POST:
                 if isinstance(payload, list): #To be changed with HAL HATEOAS
                     payload = payload[0]
