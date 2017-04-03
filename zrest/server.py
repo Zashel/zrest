@@ -21,7 +21,7 @@ ALL = [GET,
        DELETE]
 
 def not_implemented(*args, **kwargs):
-    return HTTP501
+    return json.dumps({"Error": "501"})
 
 class Handler(BaseHTTPRequestHandler):
     
@@ -52,7 +52,8 @@ class Handler(BaseHTTPRequestHandler):
         for header in headers:
             self.send_header(header, headers[header])
         self.end_headers()
-        self.wfile.write(bytearray(data["payload"], "utf-8"))                    
+        if data["payload"]:
+            self.wfile.write(bytearray(data["payload"], "utf-8"))
 
     def do_GET(self):
         self._prepare(GET)
@@ -92,7 +93,7 @@ class App:
         self._headers = dict()
 
     def __del__(self):
-        self.close()
+        self.shutdown()
 
     @property
     def headers(self):
@@ -129,10 +130,14 @@ class App:
         if matched is not None:
             filter = matched.groupdict()
             filter.update(dict(parse_qsl(parsed.query)))
+            if data.re.pattern in self._params:
+                params = self._params[data.re.pattern]
+            else:
+                params = dict()
             return {"uri":matched.re.pattern,
                     "methods": self._uris[data.re.pattern],
                     "filter": filter,
-                    "params": self._params[data.re.pattern]}
+                    "params": params}
 
     def get_model(self, model):
         return self._models(model)
@@ -159,18 +164,26 @@ class App:
         final_uri = uri
         for param in prepare_params:
             final_uri = final_uri.replace(param, prepare_params[param])
-        compilation = re.compile(final_uri, re.IGNORECASE)  # May raise SyntaxError
-        if not final_uri in self._uris:
-            self._uris[final_uri] = dict(zip(ALL, [not_implemented for x in range(0, 5)]))
-        self._re[compilation] = final_uri
-        self._params[final_uri] = prepare_params
-        self._orig_uri[final_uri] = uri
-        self._simple_uri_by_name[name] = uri
-        self._name_by_uri[final_uri] = name
-
-        for verb in allow:
-            self._uris[final_uri][verb] = model.__getattribute__(verb.lower())
+        uris = [final_uri]
+        if prepare_params:
+            list_uri = final_uri.replace("/" + prepare_params["<{}>".format(params[-1])], "")
+            uris.append(list_uri)
+        for index, suburi in enumerate(uris):
+            if not suburi in self._uris:
+                self._uris[suburi] = dict(zip(ALL, [not_implemented for x in range(0, 5)]))
+            compilation = re.compile(suburi, re.IGNORECASE)  # May raise SyntaxError
+            self._re[compilation] = suburi
+            self._params[suburi] = prepare_params
+            self._orig_uri[suburi] = uri
+            self._name_by_uri[suburi] = name
+            for verb in allow:
+                if len(uris) == 2 and index == 0 and verb == "POST":
+                    continue
+                self._uris[suburi][verb] = model.__getattribute__(verb.lower())
         print("Set Model {}".format(name))
+        if name not in self._simple_uri_by_name:
+            self._simple_uri_by_name[name] = list()
+        self._simple_uri_by_name[name].extend(uris)
         return final_uri
 
     def set_method(self, name, uri, verb, method=None):
@@ -191,8 +204,8 @@ class App:
         """
         model = None
         if name in self._models:
-            assert isinstance(self.get_model(model_name), RestfulBaseInterface)
-            model = self.get_model(model_name)
+            assert isinstance(self.get_model(name), RestfulBaseInterface)
+            model = self.get_model(name)
         if model is None:
             self._models[name] == RestfulBaseInterface()          
         final_uri = self.set_model(model, name, uri, allow=[])
@@ -208,12 +221,15 @@ class App:
         parsed = self.parse_uri(uri)
         kwargs.update({"filter": parsed["filter"]})
         kwargs["filter"] = json.dumps(kwargs["filter"])
+        payload = None
         if parsed is None:
             final["response"] = 404
         else:
             final["payload"] = parsed["methods"][verb](**kwargs)
-            if final["payload"] not in (None, str()):
+            if final["payload"]:
                 payload = json.loads(final["payload"])
+            if payload == json.dumps({"Error": "501"}):
+                final["response"] = 501
             params = parsed["params"]
             #TODO: Prepare HAL
             if verb == POST:
@@ -228,7 +244,7 @@ class App:
                         if s_param.startswith(name+"_") and len(s_param) > len(name+"_"):
                             s_param = s_param[len(name+"_"):]
                             named = name
-                    if named in payload:
+                    if payload and named in payload:
                         pl = payload[named]
                         if isinstance(pl, list):
                             pl = pl[0] #What a headache

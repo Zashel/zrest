@@ -66,7 +66,7 @@ class App_Test(unittest.TestCase):
         self.data3id.update({"_id": 4})
 
     def test_0_post(self):
-        req = requests.post("http://localhost:9000/model1/",
+        req = requests.post("http://localhost:9000/model1",
                             json = self.data1)
         self.assertEqual(req.status_code, 201)
         self.assertEqual(req.headers["Content-Type"], "application/json")
@@ -74,7 +74,7 @@ class App_Test(unittest.TestCase):
         self.assertEqual(json.loads(req.text), self.data1_id)
         datas_id = self.datas.copy()
         for index, data in enumerate(self.datas):
-            req = requests.post("http://localhost:9000/model1/",
+            req = requests.post("http://localhost:9000/model1",
                                 json=data)
             self.assertEqual(req.status_code, 201)
             self.assertEqual(req.headers["Content-Type"], "application/json")
@@ -88,7 +88,7 @@ class App_Test(unittest.TestCase):
             self.assertEqual(req.status_code, 200)
             self.assertEqual(req.headers["Content-Type"], "application/json")
             self.assertEqual(json.loads(req.text), [self.data1_id])
-        req = requests.get("http://localhost:9000/model1/")
+        req = requests.get("http://localhost:9000/model1")
         self.assertEqual(req.status_code, 200)
         self.assertEqual(req.headers["Content-Type"], "application/json")
         self.assertEqual(len(json.loads(req.text)), 5)
@@ -99,13 +99,13 @@ class App_Test(unittest.TestCase):
         self.assertEqual(req.headers["Content-Type"], "application/json")
 
     def test_3_patch(self):
-        req = requests.patch("http://localhost:9000/model1/?a=4", json={"c": 9})
+        req = requests.patch("http://localhost:9000/model1?a=4", json={"c": 9})
         self.assertEqual(req.status_code, 200)
         self.assertEqual(req.headers["Content-Type"], "application/json")
         self.assertEqual(json.loads(req.text), self.data2id)
 
     def test_4_put(self):
-        req = requests.put("http://localhost:9000/model1/?a=13", json=self.data3)
+        req = requests.put("http://localhost:9000/model1?a=13", json=self.data3)
         self.assertEqual(req.status_code, 200)
         self.assertEqual(req.headers["Content-Type"], "application/json")      
         self.assertEqual(req.text, "") # Returns the current filter, nothing in this case
@@ -149,24 +149,26 @@ class App_Test(unittest.TestCase):
         shutil.rmtree(cls.path_invoices)
 
 
-    def test_0_post(self):
-        req = requests.post("http://localhost:9000/customers/",
+    def test_00_post(self):
+        req = requests.post("http://localhost:9000/customers",
                             json={"dni": "12345678H", "nombre": "Yo, yo mismo"})
         print(req.headers["Location"])
         print(req.text)
-        req = requests.post("http://localhost:9000/invoices/",
+
+    def test_01_post(self):
+        req = requests.post("http://localhost:9000/invoices",
                             json={"cliente":0, "fecha": "01/01/2017", "importe": "10.25"})
         print(req.headers["Location"])
         print(req.text)
 
     def test_1_post_foreign(self):
-        req = requests.post("http://localhost:9000/customers/12345678H/invoices/",
+        req = requests.post("http://localhost:9000/customers/12345678H/invoices",
                             json={"fecha": "01/02/2017", "importe": "16.30"})
         print(req.headers["Location"]) #Mal
         print(req.text) #Mal
 
     def test_2_get(self):
-        req = requests.get("http://localhost:9000/customers/12345678H/invoices/")
+        req = requests.get("http://localhost:9000/customers/12345678H/invoices")
         print(req.text)
 
     def test_3_put(self):

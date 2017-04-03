@@ -125,7 +125,8 @@ class RestfulBaseInterface(ModelBaseInterface):
         :return: Data created
 
         """
-        data = self._return(self.new(self._parse(data), **kwargs))
+        data = self.new(self._parse(data), **kwargs)
+        data = self._return(data)
         return data
 
     def put(self, *, filter, data, **kwargs):

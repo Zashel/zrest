@@ -27,7 +27,7 @@ class ShelveModel(RestfulBaseInterface):
     To use with zrest.
 
     """
-    def __init__(self, filepath, groups=10, *, index_fields=None, headers=None, name=None):
+    def __init__(self, filepath, groups=10, *, index_fields=None, headers=None, name=None, items_per_page=50):
         """
         Initializes ShelveModel
         
@@ -51,6 +51,7 @@ class ShelveModel(RestfulBaseInterface):
         self._headers = headers
         self._headers_checked = False
         self._name = name
+        self.items_per_page = items_per_page
         if index_fields is None:
             self._index_fields = list()
         else:
@@ -250,7 +251,9 @@ class ShelveModel(RestfulBaseInterface):
         :returns: dictionary with result of the query
 
         """
-        filter = self._filter(filter)
+        filtered = self._filter(filter)
+        total = filtered["total"]
+        filter = filtered["filter"]
         filter = self._get_datafile(filter)
         final = list()
         for filename in filter:
@@ -324,7 +327,8 @@ class ShelveModel(RestfulBaseInterface):
             return None
         conn_in, conn_out = Pipe(False)
         self._send_pipe(action="new", data=data, pipe=conn_out)
-        return conn_in.recv()
+        recv = conn_in.recv()
+        return recv
 
     def _new(self, data, registry, shelf):
         with shelve_open(shelf) as file:
@@ -423,6 +427,15 @@ class ShelveModel(RestfulBaseInterface):
 
     def _filter(self, filter):
         final_set = set(range(0, next(self)))
+        order = str()
+        page = int()
+        if "order" in filter:
+            order = filter["order"]
+            order = order.split(",")
+        if "page" in filter:
+            page = filter["page"]
+        sub_order = dict()
+        final_order = list()
         for field in filter:
             subfilter = set()
             if field == "_id" and filter[field] != "":
@@ -436,10 +449,37 @@ class ShelveModel(RestfulBaseInterface):
                         if str(filter[field]) in index:
                             subfilter = index[str(filter[field])]
             final_set &= subfilter
-        return final_set
+        final_set = list(final_set)
+        final_set.sort()
+        if len(order) > 0:
+            for _id in final_set:
+                field = order[0] #TODO: Accept many fields
+                if field.startswith("-"):
+                    sfield = field[1:]
+                else:
+                    sfield = field
+                if any([os.path.exists(file)
+                        for file in glob.glob("{}.*".format(self._index_path(sfield)))] + [False]):
+                    with shelve_open(self._index_path(sfield), "r") as index:
+                        sub_order[sfield] = index.copy()
+                    keys = list(sub_order.keys())
+                    if field.startswith("-"):
+                        keys.reverse()
+                    else:
+                        keys.sort()
+                    for indexes in keys:
+                        for key in indexes:
+                            if key in final_set:
+                                final_order.append(key)
+        else:
+            final_order = final_set
+        if not page:
+            page = 1
+        return {"filter": final_order[self.items_per_page*(page-1):self.items_per_page*page],
+                "total": len(final_order)}
 
     def _get_datafile(self, filter):
-        assert isinstance(filter, set)
+        assert isinstance(filter, list)
         filename_reg = dict()
         for reg in filter:
             filename = self._data_path(reg % self.groups)
@@ -469,7 +509,9 @@ class ShelveModel(RestfulBaseInterface):
                 self._keep_alive(self._meta_path)
                 if "filter" in data and data["action"] not in ("new",):
                     filter = data["filter"]
-                    filter = self._filter(filter)
+                    filtered = self._filter(filter)
+                    filter = filtered["filter"]
+                    total = filtered["total"]
                     filename_reg = self._get_datafile(filter)
                 else:
                     total = next(self)
@@ -546,7 +588,7 @@ class ShelveForeign(RestfulBaseInterface):
     Foreign Key for ShelveModel. Too Cute to Be.
 
     """
-    def __init__(self, foreign_model, child_model, child_field, alias="_id"):
+    def __init__(self, foreign_model, child_model, child_field, alias="_id", items_per_page=50):
         """
         Instantiates ShelveForeign
 
@@ -572,6 +614,7 @@ class ShelveForeign(RestfulBaseInterface):
 
         self.foreign._set_as_foreign(self)
         self.child._set_as_child(self)
+        self.items_per_page = items_per_page
 
     @property
     def foreign(self):
