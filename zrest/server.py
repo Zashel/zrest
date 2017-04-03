@@ -53,7 +53,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header(header, headers[header])
         self.end_headers()
         if data["payload"]:
-            self.wfile.write(bytearray(data["payload"], "utf-8"))
+            self.wfile.write(bytearray(json.dumps(data["payload"]), "utf-8"))
 
     def do_GET(self):
         self._prepare(GET)
@@ -183,7 +183,7 @@ class App:
         print("Set Model {}".format(name))
         if name not in self._simple_uri_by_name:
             self._simple_uri_by_name[name] = list()
-        self._simple_uri_by_name[name].extend(uris)
+        self._simple_uri_by_name[name].append(uri)
         return final_uri
 
     def set_method(self, name, uri, verb, method=None):
@@ -228,11 +228,41 @@ class App:
             final["payload"] = parsed["methods"][verb](**kwargs)
             if final["payload"]:
                 payload = json.loads(final["payload"])
-            print("PrePayLoad {}".format(payload))
             payload = payload["data"]
             if payload == json.dumps({"Error": "501"}):
                 final["response"] = 501
             params = parsed["params"]
+            if isinstance(payload, list) and len(payload) == 1:  # To be changed with HAL HATEOAS
+                payload = payload[0]
+            if len(params) > 0 and "total" in payload and payload["total"] == 1:
+                payload = payload["data"]
+            keys = list(payload.keys())
+            for item in keys:
+                if item in self._simple_uri_by_name:
+                    if not "_embedded" in payload:
+                        payload["_embedded"] = dict()
+                    payload["_embedded"][item] = payload[item]
+                    del(payload[item])
+            if "_embedded" in payload:
+                print("Embedded in payload")
+                for embedded in payload["_embedded"]:
+                    for item in payload["_embedded"][embedded]["data"]:
+                        links = dict()
+                        uris = self._simple_uri_by_name[embedded]
+                        for uri in uris:
+                            s_params = self._params_searcher.findall(uri)
+                            for param in s_params:
+                                if param.startswith("<"+embedded+"_"):
+                                    s_param = "<"+param[len("<"+embedded+"_"):]
+                                else:
+                                    s_param = param
+                                if s_param in uri:
+                                    print("URI {}".format(uri))
+                                    print(param)
+                                    uri = uri.replace("<"+param+">", str(item[s_param]))
+                                    links["self"] = {"href": uri.strip("^").strip("$")}
+                                    item["_links"] = links
+                                    print(item)
             #TODO: Prepare HAL
             if verb == POST:
                 if isinstance(payload, list): #To be changed with HAL HATEOAS
@@ -252,10 +282,10 @@ class App:
                             pl = pl[0] #What a headache
                     else:
                         pl = payload
-                    print("PayLoad {}".format(payload))
                     location = location.replace(param, str(pl[s_param]))
                 final["headers"]["Location"] = location
-        return final #TODO Normalizar Datos a recibir. Diccionario con "response", "headers", "payload"
+            final["payload"] = payload
+        return final
 
     def set_ssl(self, key, cert):
         assert os.path.exists(key)

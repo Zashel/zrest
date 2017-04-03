@@ -676,7 +676,7 @@ class ShelveForeign(RestfulBaseInterface):
         """
         filter = self._filter(filter)
         foreign_data = self.foreign.fetch(filter["foreign"])
-        for data in foreign_data:
+        for data in foreign_data["data"]:
             if "_id" in data:
                 child_filter = filter["child"].copy()
                 child_filter.update({self.field: data["_id"]})
@@ -696,9 +696,9 @@ class ShelveForeign(RestfulBaseInterface):
         """
         filter = self._filter(filter)
         foreign_data = self.foreign.fetch(filter["foreign"])
-        for item in foreign_data["data"]:
+        for item in foreign_data["data"][0]:
             if "_id" == item:
-                data.update({self._child_field: foreign_data["_id"]})
+                data.update({self._child_field: foreign_data["data"][0]["_id"]})
         if self._child_field in data:
             foreign_data[self.child.name] = self.child.new(data)
         return foreign_data
