@@ -252,13 +252,15 @@ class ShelveModel(RestfulBaseInterface):
 
         """
         filtered = self._filter(filter)
-        total = filtered["total"]
         filter = filtered["filter"]
         filter = self._get_datafile(filter)
         final = list()
         for filename in filter:
             final.extend(self._fetch(filter[filename], filename))
-        return final
+        return ({"data": final,
+                 "total": filtered["total"],
+                 "page": filtered["page"],
+                 "items_per_page": filtered["items_per_page"]})
 
     def _fetch(self, registries, shelf):
         if isinstance(registries, int):
@@ -428,12 +430,15 @@ class ShelveModel(RestfulBaseInterface):
     def _filter(self, filter):
         final_set = set(range(0, next(self)))
         order = str()
-        page = int()
+        page = 1
+        items_per_page = self.items_per_page
         if "order" in filter:
             order = filter["order"]
             order = order.split(",")
         if "page" in filter:
             page = filter["page"]
+        if "items_per_page" in filter:
+            items_per_page = filter["items_per_page"]
         sub_order = dict()
         final_order = list()
         for field in filter:
@@ -473,10 +478,10 @@ class ShelveModel(RestfulBaseInterface):
                                 final_order.append(key)
         else:
             final_order = final_set
-        if not page:
-            page = 1
-        return {"filter": final_order[self.items_per_page*(page-1):self.items_per_page*page],
-                "total": len(final_order)}
+        return {"filter": final_order[items_per_page*(page-1):items_per_page*page],
+                "total": len(final_order),
+                "page": page,
+                "items_per_page": items_per_page}
 
     def _get_datafile(self, filter):
         assert isinstance(filter, list)
@@ -511,12 +516,10 @@ class ShelveModel(RestfulBaseInterface):
                     filter = data["filter"]
                     filtered = self._filter(filter)
                     filter = filtered["filter"]
-                    total = filtered["total"]
                     filename_reg = self._get_datafile(filter)
                 else:
                     total = next(self)
                     filename_reg = {self._data_path(total % self.groups): total}
-                to_send = list()
                 for filename in filename_reg:
                     self._wait_to_block(filename)
                     self._keep_alive(filename)
@@ -528,7 +531,9 @@ class ShelveModel(RestfulBaseInterface):
                     while True:
                         try:
                             if self.is_blocked(self._meta_path) is False:
-                                self.__getattribute__("_{}".format(data["action"]))(data["data"], filename_reg[filename], filename)
+                                self.__getattribute__("_{}".format(data["action"]))(data["data"],
+                                                                                    filename_reg[filename],
+                                                                                    filename)
                             else:
                                 self._alive = False
                                 time.sleep(0.1)
@@ -539,8 +544,8 @@ class ShelveModel(RestfulBaseInterface):
                                     self._keep_alive(filename)
                                     for field in self.index_fields:
                                         if any([os.path.exists(file)
-                                                for file in glob.glob("{}.*".format(self._index_path(field)))] + [
-                                            False]):
+                                                for file in glob.glob("{}.*".format(self._index_path(field)))] +
+                                                       [False]):
                                             self._wait_to_block(self._index_path(field))
                                             self._keep_alive(self._index_path(field))
                                 continue
@@ -551,17 +556,23 @@ class ShelveModel(RestfulBaseInterface):
                             time.sleep(0.1)
                             continue
                         else:
-                            if data["action"] == "new":
-                                send = data["data"]
-                                send.update({"_id": total})
                             break
-                if data["action"] in ("drop", "edit", "replace"):
-                     try:
-                         send = self.fetch(data["filter"])
-                         """After an edit or a replace filter may change...
-                            Is it a bug?"""
-                     except KeyError:
-                         send = None
+                if data["action"] == "new":
+                    s_filter = {"_id": total}
+                else:
+                    s_filter = data["filter"]
+                if data["action"] in ("new", "drop", "edit", "replace"):
+                    try:
+                        send = self.fetch(s_filter)
+                        """After an edit or a replace filter may change...
+                           Is it a bug?"""
+                    except KeyError:
+                        send = None
+                    if data["action"] != "new":
+                        send = {"data": send,
+                                "total": filtered["total"],
+                                "page": filtered["page"],
+                                "items_per_page": filtered["items_per_page"]}
                 self._alive = False
                 data["pipe"].send(send)
                 #TODO: send error
@@ -673,7 +684,7 @@ class ShelveForeign(RestfulBaseInterface):
                 data[self.child.name] = child_data
         return foreign_data
 
-    def new(self, data, *, filter, **kwargs):
+    def new(self, data, *, filter, **kwargs): #Redo
         """
         Creates new child associated to a single foreign
 
@@ -684,8 +695,8 @@ class ShelveForeign(RestfulBaseInterface):
 
         """
         filter = self._filter(filter)
-        foreign_data = self.foreign.fetch(filter["foreign"])[0]
-        for item in foreign_data:
+        foreign_data = self.foreign.fetch(filter["foreign"])
+        for item in foreign_data["data"]:
             if "_id" == item:
                 data.update({self._child_field: foreign_data["_id"]})
         if self._child_field in data:

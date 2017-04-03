@@ -228,6 +228,8 @@ class App:
             final["payload"] = parsed["methods"][verb](**kwargs)
             if final["payload"]:
                 payload = json.loads(final["payload"])
+            print("PrePayLoad {}".format(payload))
+            payload = payload["data"]
             if payload == json.dumps({"Error": "501"}):
                 final["response"] = 501
             params = parsed["params"]
@@ -250,6 +252,7 @@ class App:
                             pl = pl[0] #What a headache
                     else:
                         pl = payload
+                    print("PayLoad {}".format(payload))
                     location = location.replace(param, str(pl[s_param]))
                 final["headers"]["Location"] = location
         return final #TODO Normalizar Datos a recibir. Diccionario con "response", "headers", "payload"
