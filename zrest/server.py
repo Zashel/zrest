@@ -263,26 +263,33 @@ class App:
                                     links["self"] = {"href": uri.strip("^").strip("$")}
                                     item["_links"] = links
                                     print(item)
-            #TODO: Prepare HAL
-            if verb == POST:
-                if isinstance(payload, list): #To be changed with HAL HATEOAS
-                    payload = payload[0]
-                location = self._orig_uri[parsed["uri"]]
-                location = location.strip("^").strip("$")
-                for param in params:
-                    s_param = param[1:-1]
-                    named = str()
-                    for name in self._models:
-                        if s_param.startswith(name+"_") and len(s_param) > len(name+"_"):
-                            s_param = s_param[len(name+"_"):]
-                            named = name
-                    if payload and named in payload:
-                        pl = payload[named]
-                        if isinstance(pl, list):
-                            pl = pl[0] #What a headache
+            #if verb == POST:
+            #if isinstance(payload, list): #To be changed with HAL HATEOAS
+            #    payload = payload[0]
+            location = self._orig_uri[parsed["uri"]]
+            location = location.strip("^").strip("$")
+            for param in params:
+                s_param = param[1:-1]
+                named = str()
+                for name in self._models:
+                    if s_param.startswith(name+"_") and len(s_param) > len(name+"_"):
+                        s_param = s_param[len(name+"_"):]
+                        named = name
+                if (payload and "_embedded" in payload and 
+                                named in payload["_embedded"]):
+                    pl = payload["_embedded"][named]
+                    if isinstance(pl, list) and len(pl) == 1:
+                        pl = pl[0].copy() #What a headache
                     else:
-                        pl = payload
+                        pl[s_param] = None
+                else:
+                    pl = payload
+                if pl[s_param] is not None:
                     location = location.replace(param, str(pl[s_param]))
+                else:
+                    location = location.replace("/"+param, "")
+            if isinstance(payload, dict):
+                payload["_links"] = {"self": {"href": location}}
                 final["headers"]["Location"] = location
             final["payload"] = payload
         return final

@@ -185,6 +185,9 @@ class App_Test(unittest.TestCase):
         req = requests.delete("http://localhost:9000/customers/12345678H/invoices/1")
         print(req.text)
 
+    def test_6_get_single(self):
+        req = requests.get("http://localhost:9000/customers/12345678H/invoices/1")
+        print(req.text)
 
 
 if __name__ == "__main__":
