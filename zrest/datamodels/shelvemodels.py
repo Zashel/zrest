@@ -257,7 +257,24 @@ class ShelveModel(RestfulBaseInterface):
         final = list()
         for filename in filter:
             final.extend(self._fetch(filter[filename], filename))
-        return ({"data": final,
+        new_final = list()
+        print("Here")
+        for _id in filtered["filter"]:
+            for index, item in enumerate(final):
+                if "_id" in item and item["_id"]==_id:
+                    if filtered["fields"]:
+                        new = dict()
+                        for field in item:
+                            if field=="_id" or field in filtered["fields"]:
+                                new[field] = item[field]
+                        new_final.append(new)
+                        break
+                    else:
+                        new_final.append(item)
+                        break
+            del(final[index])
+        print("Not here")
+        return ({"data": new_final,
                  "total": filtered["total"],
                  "page": filtered["page"],
                  "items_per_page": filtered["items_per_page"]})
@@ -430,6 +447,7 @@ class ShelveModel(RestfulBaseInterface):
     def _filter(self, filter):
         final_set = set(range(0, next(self)))
         order = str()
+        fields = list()
         page = 1
         items_per_page = self.items_per_page
         if "order" in filter:
@@ -439,6 +457,8 @@ class ShelveModel(RestfulBaseInterface):
             page = filter["page"]
         if "items_per_page" in filter:
             items_per_page = filter["items_per_page"]
+        if "fields" in filter:
+            fields = filter["fields"].split(",")
         sub_order = dict()
         final_order = list()
         for field in filter:
@@ -481,7 +501,8 @@ class ShelveModel(RestfulBaseInterface):
         return {"filter": final_order[items_per_page*(page-1):items_per_page*page],
                 "total": len(final_order),
                 "page": page,
-                "items_per_page": items_per_page}
+                "items_per_page": items_per_page,
+                "fields": fields}
 
     def _get_datafile(self, filter):
         assert isinstance(filter, list)
