@@ -797,3 +797,25 @@ class ShelveForeign(RestfulBaseInterface):
 
     def close(self):
         pass
+
+class RelationalShelveModel(ShelveModel):
+    def __init__(self, *args, relations, **kwargs):
+        """
+        Creates a relational shelve model related with models which names
+         are given by relations
+        :param args: args for ShelveModel
+        :param relations: list with related models
+        :param kwargs: kwargs for ShelveModel
+        """
+        super.__init__(*args, *kwargs)
+        self._relations = dict(zip([rel.name for rel in relations], [rel for rel in relations]))
+
+    def fetch(self, filter, **kwargs):
+        data = super().fetch(filter, **kwargs)
+        for item in data["data"]:
+            for field in item:
+                for name in self._relations:
+                    if field.startswith(name+"_") is True:
+                        item[name] = self._relations[name].fetch(
+                                filter = {field[len(name+"_"):] : item[field]})
+        return data
