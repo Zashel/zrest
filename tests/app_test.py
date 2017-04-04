@@ -186,7 +186,15 @@ class App_Test(unittest.TestCase):
         print(req.text)
 
     def test_6_get_single(self):
-        req = requests.get("http://localhost:9000/customers/12345678H/invoices/1")
+        req = requests.get("http://localhost:9000/customers/12345678H/invoices")
+        print(req.text)
+
+    def test_7_get_invoices(self):
+        req = requests.get("http://localhost:9000/invoices")
+        print(req.text)
+
+    def test_8_get_customers(self):
+        req = requests.get("http://localhost:9000/customers")
         print(req.text)
 
 

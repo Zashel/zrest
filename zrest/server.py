@@ -4,6 +4,7 @@ from .basedatamodel import RestfulBaseInterface
 from .statuscodes import *
 from zashel.utils import threadize
 from urllib.parse import urlparse, parse_qsl
+from math import ceil
 import re
 import json
 import ssl
@@ -90,7 +91,7 @@ class App:
         self._re = dict()
         self._params_searcher = re.compile(r"<(?P<param>[\w]*)>")
         self._key, self._cert = None, None
-        self._headers = dict()
+        self._headers = {"Content-Type": "application/json"}
 
     def __del__(self):
         self.shutdown()
@@ -109,7 +110,7 @@ class App:
         """Gets the uri and returns the specified item in self_uris dictionary
 
         :param uri: uri to parse
-        :returns: dictionary with "methods", "filter"
+        :returns: dictionary with "methods", "filter", "param" and "uri"
 
         """
         parsed = urlparse(uri)
@@ -222,21 +223,31 @@ class App:
         kwargs.update({"filter": parsed["filter"]})
         kwargs["filter"] = json.dumps(kwargs["filter"])
         payload = None
+        page = 1
+        next = 1
+        prev = 1
+        last = 1
+        first = 1
+        total = 1
+        pages = 1
         if parsed is None:
             final["response"] = 404
         else:
             final["payload"] = parsed["methods"][verb](**kwargs)
             if final["payload"]:
                 payload = json.loads(final["payload"])
-            payload = payload["data"]
+            params = parsed["params"]
+            #if (len(payload["data"]) == 1 and "_embedded" in payload["data"][0]):  # To be changed with HAL HATEOAS
+            if "total" in payload and payload["total"] == 1:
+                payload = payload["data"][0]
+            elif "total" in payload and payload["total"] > 1:
+                payload = {self._name_by_uri[parsed["uri"]]: payload}
             if payload == json.dumps({"Error": "501"}):
                 final["response"] = 501
-            params = parsed["params"]
-            if isinstance(payload, list) and len(payload) == 1:  # To be changed with HAL HATEOAS
-                payload = payload[0]
-            if len(params) > 0 and "total" in payload and payload["total"] == 1:
-                payload = payload["data"]
-            keys = list(payload.keys())
+            try:
+                keys = list(payload.keys())
+            except AttributeError:
+                print(payload)
             for item in keys:
                 if item in self._simple_uri_by_name:
                     if not "_embedded" in payload:
@@ -244,7 +255,6 @@ class App:
                     payload["_embedded"][item] = payload[item]
                     del(payload[item])
             if "_embedded" in payload:
-                print("Embedded in payload")
                 for embedded in payload["_embedded"]:
                     for item in payload["_embedded"][embedded]["data"]:
                         links = dict()
@@ -257,12 +267,22 @@ class App:
                                 else:
                                     s_param = param
                                 if s_param in uri:
-                                    print("URI {}".format(uri))
-                                    print(param)
                                     uri = uri.replace("<"+param+">", str(item[s_param]))
                                     links["self"] = {"href": uri.strip("^").strip("$")}
                                     item["_links"] = links
-                                    print(item)
+                    if ("total" in payload["_embedded"][embedded] and
+                            "page" in payload["_embedded"][embedded] and
+                            "items_per_page" in payload["_embedded"][embedded]):
+                        total = payload["_embedded"][embedded]["total"]
+                        page = payload["_embedded"][embedded]["page"]
+                        items_per_page = payload["_embedded"][embedded]["items_per_page"]
+                        if total > items_per_page:
+                            pages = ceil(total/items_per_page)
+                            next = pages+1
+                            prev = pages-1
+                            first = 1
+                            last = pages
+                        payload["_embedded"][embedded] = payload["_embedded"][embedded]["data"]
             #if verb == POST:
             #if isinstance(payload, list): #To be changed with HAL HATEOAS
             #    payload = payload[0]
@@ -281,15 +301,34 @@ class App:
                     if isinstance(pl, list) and len(pl) == 1:
                         pl = pl[0].copy() #What a headache
                     else:
-                        pl[s_param] = None
+                        pl = {s_param: None}
                 else:
                     pl = payload
-                if pl[s_param] is not None:
+                if s_param in pl and pl[s_param] is not None:
                     location = location.replace(param, str(pl[s_param]))
                 else:
                     location = location.replace("/"+param, "")
             if isinstance(payload, dict):
-                payload["_links"] = {"self": {"href": location}}
+                new_filter = json.loads(kwargs["filter"])
+                for param in parsed["params"]:
+                    if param[1:-1] in new_filter:
+                        del(new_filter[param[1:-1]])
+                if len(new_filter) > 0:
+                    query = "?{}".format("&".join(["=".join((key, new_filter[key])) for key in new_filter]))
+                else:
+                    query = str()
+                payload["_links"] = {"self": {"href": location+query}}
+                for name, item in (("first", first),
+                                   ("last", last),
+                                   ("prev", prev),
+                                   ("next", next)):
+                    if item != page and item < pages and item > 1:
+                        new_filter.update({"page": item,
+                                           "items_per_page": items_per_page})
+                        payload["_links"] = {name: {
+                                "href": location+"?{}".format(
+                                    "&".join(["=".join((key, new_filter[key])) for key in new_filter]))
+                                    }}
                 final["headers"]["Location"] = location
             final["payload"] = payload
         return final
