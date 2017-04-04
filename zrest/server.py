@@ -242,8 +242,8 @@ class App:
                 payload = payload["data"][0]
             elif "total" in payload and payload["total"] > 1:
                 payload = {self._name_by_uri[parsed["uri"]]: payload}
-            if payload == json.dumps({"Error": "501"}):
-                final["response"] = 501
+            if "Error" in payload:
+                final["response"] = int(payload["Error"])
             try:
                 keys = list(payload.keys())
             except AttributeError:

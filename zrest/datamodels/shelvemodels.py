@@ -27,7 +27,11 @@ class ShelveModel(RestfulBaseInterface):
     To use with zrest.
 
     """
-    def __init__(self, filepath, groups=10, *, index_fields=None, headers=None, name=None, items_per_page=50):
+    def __init__(self, filepath, groups=10, *, index_fields=None,
+                                               headers=None,
+                                               name=None,
+                                               items_per_page=50,
+                                               unique=None):
         """
         Initializes ShelveModel
         
@@ -36,6 +40,9 @@ class ShelveModel(RestfulBaseInterface):
         :param index_fields: fields indexed. Not indexed fields do not accept queries
         :param headers: headers of table. None by default. If None dictionaries are
         stored.
+        :param name: name of the model
+        :param items_per_page: amount of items each page
+        :param unique: unique field. One bye the moment
 
         """
         try:
@@ -50,6 +57,7 @@ class ShelveModel(RestfulBaseInterface):
         self._close = False
         self._headers = headers
         self._headers_checked = False
+        self._unique = unique
         self._name = name
         self.items_per_page = items_per_page
         if index_fields is None:
@@ -345,7 +353,13 @@ class ShelveModel(RestfulBaseInterface):
         if self._check_child(data) != 0:
             return None
         conn_in, conn_out = Pipe(False)
-        self._send_pipe(action="new", data=data, pipe=conn_out)
+        test = None
+        if self._unique in data:
+            test = self.fetch({self._unique: data[self._unique]})
+        if test:
+            self._send_pipe(action="replace", data=data, filter={self._unique: data[self._unique]}, pipe=conn_out)
+        else:
+            self._send_pipe(action="new", data=data, pipe=conn_out)
         recv = conn_in.recv()
         return recv
 
@@ -378,7 +392,15 @@ class ShelveModel(RestfulBaseInterface):
         if self._check_child(data) != 0:
             return None
         conn_in, conn_out = Pipe(False)
-        self._send_pipe(action="replace", filter=filter, data=data, pipe=conn_out)
+        test = None
+        if ((self._unique in data and self._unique not in filter) or
+            (self._unique in data and self._unique in filter and data[self._unique]!=filter[self._unique])):
+            test = self.fetch({self._unique: data[self._unique]})
+        if not test:
+            self._send_pipe(action="replace", filter=filter, data=data, pipe=conn_out)
+        else:
+            return {"Error": "400"}
+
         return conn_in.recv()
 
     def _replace(self, data, registries, shelf):
@@ -408,7 +430,14 @@ class ShelveModel(RestfulBaseInterface):
         if self._check_child(data) == 2:
             return None
         conn_in, conn_out = Pipe(False)
-        self._send_pipe(action="edit", filter=filter, data=data, pipe=conn_out)
+        test = None
+        if ((self._unique in data and self._unique not in filter) or
+                (self._unique in data and self._unique in filter and data[self._unique] != filter[self._unique])):
+            test = self.fetch({self._unique: data[self._unique]})
+        if not test:
+            self._send_pipe(action="edit", filter=filter, data=data, pipe=conn_out)
+        else:
+            return {"Error": "400"}
         return conn_in.recv()
 
     def _edit(self, data, registries, shelf):
