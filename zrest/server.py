@@ -345,7 +345,7 @@ class App:
             ssl.wrap_socket(self._server.socket, self._key, self._cert)
         self._server.serve_forever()
 
-    def shutdown(self):
+    def shutdown(self, *args, **kwargs):
         self._server.shutdown()
         for model in self._models:
             self._models[model].close()

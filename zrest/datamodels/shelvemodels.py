@@ -798,7 +798,7 @@ class ShelveForeign(RestfulBaseInterface):
     def close(self):
         pass
 
-class RelationalShelveModel(ShelveModel):
+class ShelveRelational(ShelveModel):
     def __init__(self, *args, relations, **kwargs):
         """
         Creates a relational shelve model related with models which names
