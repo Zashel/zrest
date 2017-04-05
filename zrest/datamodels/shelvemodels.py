@@ -807,7 +807,7 @@ class ShelveRelational(ShelveModel):
         :param relations: list with related models
         :param kwargs: kwargs for ShelveModel
         """
-        super.__init__(*args, *kwargs)
+        super().__init__(*args, **kwargs)
         self._relations = dict(zip([rel.name for rel in relations], [rel for rel in relations]))
 
     def fetch(self, filter, **kwargs):

@@ -39,7 +39,7 @@ class App_Test(unittest.TestCase):
                                       headers=["a", "b", "c"]),
                           "model1",
                           "^/model1/<_id>$",)
-        cls.app.run("127.0.0.1", 9000)
+        cls.app.run_thread("127.0.0.1", 9000)
 
     @classmethod
     def tearDownClass(cls):
@@ -139,7 +139,7 @@ class App_Test(unittest.TestCase):
                                         "cliente"),
                           "customers/invoices",
                           "^/customers/<customers_dni>/invoices/<invoices__id>$")
-        cls.app.run("127.0.0.1", 9000)
+        cls.app.run_thread("127.0.0.1", 9000)
 
     @classmethod
     def tearDownClass(cls):

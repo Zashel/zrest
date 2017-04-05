@@ -160,3 +160,6 @@ class RestfulBaseInterface(ModelBaseInterface):
         """
         data = self.edit(self._parse(filter), self._parse(data), **kwargs)
         return self._return(data)
+
+    def close(self):
+        pass

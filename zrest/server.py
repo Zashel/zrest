@@ -2,13 +2,14 @@ from zrest.statuscodes import *
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from .basedatamodel import RestfulBaseInterface
 from .statuscodes import *
-from zashel.utils import threadize
+from zashel.utils import threadize, daemonize
 from urllib.parse import urlparse, parse_qsl
 from math import ceil
 import re
 import json
 import ssl
 import os
+import time
 
 GET = "GET"
 POST = "POST"
@@ -26,7 +27,7 @@ def not_implemented(*args, **kwargs):
     Base function for not implemented methods. Default method for every model
     assigned to app.
     :returns: an str jsonify object: {"Error": "501"}
-    
+
     """
     return json.dumps({"Error": "501"})
 
@@ -35,26 +36,26 @@ class Handler(BaseHTTPRequestHandler):
     Base Handler for ZRest APP. It can be subclassed to implement exceptions
     to any thing. Subclassing is imperative wheather multiple apps are ins-
     tantiated and each of them have a different behavour.
-    
+
     It has the following methods:
     :method _prepare: private method to prepare and send the reponse to
-                      client. It sends a 404 - Not d Error in case there 
+                      client. It sends a 404 - Not d Error in case there
                       is no data found.
     :method set_app: class method to assign the app to the handler. Used
                      the time the app is instantiated.
     :method do_GET: calls _prepare with no other parameter than a GET action.
-    :method do_POST: calls _prepare with POST action and 201 response as 
+    :method do_POST: calls _prepare with POST action and 201 response as
                      default.
     :method do_PUT: calls _prepare with no other parameter than a PUT action.
     :method do_PATCH: calls _prepare with no other paramenter than a PATCH action.
     :method do_DELETE: calls _prepare with no other paramenter than a DELETE action.
-    
+
     """
     @property
     def rest_app(self):
         """
         Returns app assigned to Handler
-        
+
         """
         return self._rest_app
 
@@ -63,7 +64,7 @@ class Handler(BaseHTTPRequestHandler):
         """
         Defienes the app assigned to the handler. As a class method, if several
         apps has to be defined, a subclass of Handler for each one is needed.
-        
+
         """
         cls._rest_app = app
 
@@ -73,8 +74,8 @@ class Handler(BaseHTTPRequestHandler):
         :param action: Action to response. It may be one of predefined:
                        GET, PUT, POST, PATCH, DELETE
         :param response_default: Response code by default in case everything
-                                 goes alright. 200 - OK by default. 
-        
+                                 goes alright. 200 - OK by default.
+
         """
         if action in (POST, PUT, PATCH):
             data = self.rfile.read(int(self.headers["Content-Length"]))
@@ -101,16 +102,16 @@ class Handler(BaseHTTPRequestHandler):
         """
         What to do with a GET query. Calls _prepare with a GET action. It can be
         overriden to change behavour.
-        
+
         """
         self._prepare(GET)
         return
 
     def do_POST(self):
         """
-        What to do with a POST query. Calls _prepare with a POST action and a 
+        What to do with a POST query. Calls _prepare with a POST action and a
         default response of 201 - Created. It can be overriden to change behavour.
-        
+
         """
         self._prepare(POST, 201)
         return
@@ -119,7 +120,7 @@ class Handler(BaseHTTPRequestHandler):
         """
         What to do with a PUT query. Calls _prepare with a PUT action. It can be
         overriden to change behavour.
-        
+
         """
         self._prepare(PUT)
         return
@@ -128,7 +129,7 @@ class Handler(BaseHTTPRequestHandler):
         """
         What to do with a PATCH query. Calls _prepare with a PATCH action. It can be
         overriden to change behavour.
-        
+
         """
         self._prepare(PATCH)
         return
@@ -137,7 +138,7 @@ class Handler(BaseHTTPRequestHandler):
         """
         What to do with a DELETE query. Calls _prepare with a DELETE action. It can be
         overriden to change behavour.
-        
+
         """
         self._prepare(DELETE)
         return
@@ -145,7 +146,7 @@ class Handler(BaseHTTPRequestHandler):
 class App:
     """
     App class to simplify the implementation of the API.
-    
+
     :method set_header: Sets a single header with given information.
     :method set_headers: Updates headers dictionary with given dictionary.
     :method parse_uri: Gives a dictionary with uri's information to use in
@@ -157,9 +158,9 @@ class App:
     :method set_ssl: Sets defined key and cert in socket to ssl connections
     :method run_thread: Runs Application in a separate thread.
     :method run: Runs application.
-    :method shutdown: Safe shutdown of all threads. 
+    :method shutdown: Safe shutdown of all threads.
                       Called by default by __del__.
-    
+
     """
     def __init__(self, *, handler=Handler, not_implemented=not_implemented):
         self._models = dict()
@@ -176,6 +177,7 @@ class App:
         self._key, self._cert = None, None
         self._headers = {"Content-Type": "application/json"}
         self._not_implemented = not_implemented
+        self._base_uri = str()
 
     def __del__(self):
         self.shutdown()
@@ -224,8 +226,11 @@ class App:
                     "filter": filter,
                     "params": params}
 
+    def set_base_uri(self, uri):
+        self._base_uri = uri
+
     def get_model(self, model):
-        return self._models(model)
+        return self._models[model]
 
     def set_model(self, model, name, uri, allow=ALL):
         """
@@ -239,7 +244,8 @@ class App:
         :returns: uri setted as index of all dicts
 
         """
-        assert isinstance(model, RestfulBaseInterface)
+        assert all([hasattr(model, attr) for attr in ("get", "post", "put", "patch", "delete")])
+        uri = self._base_uri.strip(r"$")+uri.strip(r"^")
         if hasattr(model, "name") is True:
             model.name = name
         self._models[name] = model
@@ -290,11 +296,11 @@ class App:
 
         """
         model = None
-        if name in self._models:
-            assert isinstance(self.get_model(name), RestfulBaseInterface)
+        if name in self._models and isinstance(self.get_model(name), RestfulBaseInterface):
             model = self.get_model(name)
         if model is None:
-            self._models[name] == RestfulBaseInterface()          
+            model = RestfulBaseInterface()
+            self._models[name] = model
         final_uri = self.set_model(model, name, uri, allow=[])
         if method is None:
             method = model.__getattribute__(verb.lower())
@@ -306,117 +312,123 @@ class App:
                  "payload": str()
                  }
         parsed = self.parse_uri(uri)
-        kwargs.update({"filter": parsed["filter"]})
-        kwargs["filter"] = json.dumps(kwargs["filter"])
-        payload = None
-        page = 1
-        next = 1
-        prev = 1
-        last = 1
-        first = 1
-        total = 1
-        pages = 1
-        if parsed is None:
-            final["response"] = 404
-        else:
-            final["payload"] = parsed["methods"][verb](**kwargs)
-            if final["payload"]:
-                payload = json.loads(final["payload"])
-            params = parsed["params"]
-            #if (len(payload["data"]) == 1 and "_embedded" in payload["data"][0]):  # To be changed with HAL HATEOAS
-            if "total" in payload and payload["total"] == 1:
-                payload = payload["data"][0]
-            elif "total" in payload and payload["total"] > 1:
-                payload = {self._name_by_uri[parsed["uri"]]: payload}
-            if "Error" in payload:
-                final["response"] = int(payload["Error"])
-            try:
-                keys = list(payload.keys())
-            except AttributeError:
-                print(payload)
-            for item in keys:
-                if item in self._simple_uri_by_name:
-                    if not "_embedded" in payload:
-                        payload["_embedded"] = dict()
-                    payload["_embedded"][item] = payload[item]
-                    del(payload[item])
-            if "_embedded" in payload:
-                for embedded in payload["_embedded"]:
-                    for item in payload["_embedded"][embedded]["data"]:
-                        links = dict()
-                        uris = self._simple_uri_by_name[embedded]
-                        for uri in uris:
-                            s_params = self._params_searcher.findall(uri)
-                            for param in s_params:
-                                if param.startswith("<"+embedded+"_"):
-                                    s_param = "<"+param[len("<"+embedded+"_"):]
-                                else:
-                                    s_param = param
-                                if s_param in uri:
-                                    uri = uri.replace("<"+param+">", str(item[s_param]))
-                                    links["self"] = {"href": uri.strip("^").strip("$")}
-                                    item["_links"] = links
-                    if ("total" in payload["_embedded"][embedded] and
-                            "page" in payload["_embedded"][embedded] and
-                            "items_per_page" in payload["_embedded"][embedded]):
-                        total = payload["_embedded"][embedded]["total"]
-                        page = payload["_embedded"][embedded]["page"]
-                        items_per_page = payload["_embedded"][embedded]["items_per_page"]
-                        if total > items_per_page:
-                            pages = ceil(total/items_per_page)
-                            next = pages+1
-                            prev = pages-1
-                            first = 1
-                            last = pages
-                        payload["_embedded"][embedded] = payload["_embedded"][embedded]["data"]
-            #if verb == POST:
-            #if isinstance(payload, list): #To be changed with HAL HATEOAS
-            #    payload = payload[0]
-            location = self._orig_uri[parsed["uri"]]
-            location = location.strip("^").strip("$")
-            for param in params:
-                s_param = param[1:-1]
-                named = str()
-                for name in self._models:
-                    if s_param.startswith(name+"_") and len(s_param) > len(name+"_"):
-                        s_param = s_param[len(name+"_"):]
-                        named = name
-                if (payload and "_embedded" in payload and 
-                                named in payload["_embedded"]):
-                    pl = payload["_embedded"][named]
-                    if isinstance(pl, list) and len(pl) == 1:
-                        pl = pl[0].copy() #What a headache
+        if parsed:
+            kwargs.update({"filter": parsed["filter"]})
+            kwargs["filter"] = json.dumps(kwargs["filter"])
+            payload = None
+            page = 1
+            next = 1
+            prev = 1
+            last = 1
+            first = 1
+            total = 1
+            pages = 1
+            if parsed is None:
+                final["response"] = 404
+            else:
+                final["payload"] = parsed["methods"][verb](**kwargs)
+                if final["payload"]:
+                    payload = json.loads(final["payload"])
+                params = parsed["params"]
+                #if (len(payload["data"]) == 1 and "_embedded" in payload["data"][0]):  # To be changed with HAL HATEOAS
+                if "total" in payload and payload["total"] == 1:
+                    payload = payload["data"][0]
+                elif "total" in payload and payload["total"] > 1:
+                    payload = {self._name_by_uri[parsed["uri"]]: payload}
+                if "Error" in payload:
+                    final["response"] = int(payload["Error"])
+                try:
+                    keys = list(payload.keys())
+                except AttributeError:
+                    print(payload)
+                for item in keys:
+                    if item in self._simple_uri_by_name:
+                        if not "_embedded" in payload:
+                            payload["_embedded"] = dict()
+                        payload["_embedded"][item] = payload[item]
+                        del(payload[item])
+                if "_embedded" in payload:
+                    for embedded in payload["_embedded"]:
+                        for item in payload["_embedded"][embedded]["data"]:
+                            links = dict()
+                            uris = self._simple_uri_by_name[embedded]
+                            for uri in uris:
+                                s_params = self._params_searcher.findall(uri)
+                                for param in s_params:
+                                    if param.startswith("<"+embedded+"_"):
+                                        s_param = "<"+param[len("<"+embedded+"_"):]
+                                    else:
+                                        s_param = param
+                                    if s_param in uri:
+                                        uri = uri.replace("<"+param+">", str(item[s_param]))
+                                        links["self"] = {"href": uri.strip("^").strip("$")}
+                                        item["_links"] = links
+                        if ("total" in payload["_embedded"][embedded] and
+                                "page" in payload["_embedded"][embedded] and
+                                "items_per_page" in payload["_embedded"][embedded]):
+                            total = payload["_embedded"][embedded]["total"]
+                            page = payload["_embedded"][embedded]["page"]
+                            items_per_page = payload["_embedded"][embedded]["items_per_page"]
+                            if total > items_per_page:
+                                pages = ceil(total/items_per_page)
+                                next = pages+1
+                                prev = pages-1
+                                first = 1
+                                last = pages
+                            payload["_embedded"][embedded] = payload["_embedded"][embedded]["data"]
+                #if verb == POST:
+                #if isinstance(payload, list): #To be changed with HAL HATEOAS
+                #    payload = payload[0]
+                location = self._orig_uri[parsed["uri"]]
+                location = location.strip("^").strip("$")
+                for param in params:
+                    s_param = param[1:-1]
+                    named = str()
+                    for name in self._models:
+                        if s_param.startswith(name+"_") and len(s_param) > len(name+"_"):
+                            s_param = s_param[len(name+"_"):]
+                            named = name
+                    if (payload and "_embedded" in payload and
+                                    named in payload["_embedded"]):
+                        pl = payload["_embedded"][named]
+                        if isinstance(pl, list) and len(pl) == 1:
+                            pl = pl[0].copy() #What a headache
+                        else:
+                            pl = {s_param: None}
                     else:
-                        pl = {s_param: None}
-                else:
-                    pl = payload
-                if s_param in pl and pl[s_param] is not None:
-                    location = location.replace(param, str(pl[s_param]))
-                else:
-                    location = location.replace("/"+param, "")
-            if isinstance(payload, dict):
-                new_filter = json.loads(kwargs["filter"])
-                for param in parsed["params"]:
-                    if param[1:-1] in new_filter:
-                        del(new_filter[param[1:-1]])
-                if len(new_filter) > 0:
-                    query = "?{}".format("&".join(["=".join((key, new_filter[key])) for key in new_filter]))
-                else:
-                    query = str()
-                payload["_links"] = {"self": {"href": location+query}}
-                for name, item in (("first", first),
-                                   ("last", last),
-                                   ("prev", prev),
-                                   ("next", next)):
-                    if item != page and item < pages and item > 1:
-                        new_filter.update({"page": item,
-                                           "items_per_page": items_per_page})
-                        payload["_links"] = {name: {
-                                "href": location+"?{}".format(
-                                    "&".join(["=".join((key, new_filter[key])) for key in new_filter]))
-                                    }}
-                final["headers"]["Location"] = location
-            final["payload"] = payload
+                        pl = payload
+                    if s_param in pl and pl[s_param] is not None:
+                        location = location.replace(param, str(pl[s_param]))
+                    else:
+                        location = location.replace("/"+param, "")
+                if isinstance(payload, dict):
+                    new_filter = json.loads(kwargs["filter"])
+                    for param in parsed["params"]:
+                        if param[1:-1] in new_filter:
+                            del(new_filter[param[1:-1]])
+                    if len(new_filter) > 0:
+                        query = "?{}".format("&".join(["=".join((key, new_filter[key])) for key in new_filter]))
+                    else:
+                        query = str()
+                    payload["_links"] = {"self": {"href": location+query}}
+                    for name, item in (("first", first),
+                                       ("last", last),
+                                       ("prev", prev),
+                                       ("next", next)):
+                        if item != page and item < pages and item > 1:
+                            new_filter.update({"page": item,
+                                               "items_per_page": items_per_page})
+                            payload["_links"] = {name: {
+                                    "href": location+"?{}".format(
+                                        "&".join(["=".join((key, new_filter[key])) for key in new_filter]))
+                                        }}
+                    final["headers"]["Location"] = location
+                final["payload"] = payload
+        else:
+            final = {"response": 404,  # 0 is decided by do_X of the Handler
+                     "headers": dict(),
+                     "payload": str()
+                     }
         return final
 
     def set_ssl(self, key, cert):
@@ -424,17 +436,24 @@ class App:
         assert os.path.exists(cert)
         self._key, self._cert = key, cert
 
-    @threadize
-    def run_thread(self, addr, port):
-        self.run(addr, port)
-
     def run(self, addr, port):
         self._server = HTTPServer((addr, port), self._handler)
         if self._key is not None and self._cert is not None:
             ssl.wrap_socket(self._server.socket, self._key, self._cert)
         self._server.serve_forever()
 
-    def shutdown(self, *args, **kwargs):
+    @threadize
+    def run_thread(self, addr, port):
+        self.run(addr, port)
+
+    @threadize
+    def _shutdown(self):
+        time.sleep(0.1)
         self._server.shutdown()
         for model in self._models:
             self._models[model].close()
+
+    def shutdown(self, *args, **kwargs):
+        self._shutdown()
+        return json.dumps({"message": "Shutting down server.\nBye, bye."})
+
