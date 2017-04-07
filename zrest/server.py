@@ -25,7 +25,22 @@ def not_implemented(*args, **kwargs):
     return json.dumps({"Error": "501"})
 
 class Handler(BaseHTTPRequestHandler):
+    """
+    Base Handler for ZRest APP. It can be subclassed to implement exceptions
+    to any thing. Subclassing is imperative wheather multiple apps are ins-
+    tantiated and each of them have a different behavour.
     
+    It has the following methods:
+    :method _prepare: private method to prepare and send the reponse to
+                      client. It sends a 404 - Not d Error in case there 
+                      is no data found.
+    :method set_app: class method to assign the app to the handler. Used
+                     the time the app is instantiated.
+    :method do_GET: calls _prepare with no other parameter than a GET action.
+    :method do_POST: calls _prepare with POST action and 201 response as 
+                     default.
+    
+    """
     @property
     def rest_app(self):
         return self._rest_app
