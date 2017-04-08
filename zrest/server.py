@@ -70,6 +70,11 @@ class Handler(BaseHTTPRequestHandler):
     def _prepare(self, action, response_default=200):
         """
         Prepares and sends requested data to client.
+        :param action: Action to response. It may be one of predefined:
+                       GET, PUT, POST, PATCH, DELETE
+        :param response_default: Response code by default in case everything
+                                 goes alright. 200 - OK by default. 
+        
         """
         if action in (POST, PUT, PATCH):
             data = self.rfile.read(int(self.headers["Content-Length"]))
@@ -93,22 +98,47 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(bytearray(json.dumps(data["payload"]), "utf-8"))
 
     def do_GET(self):
+        """
+        What to do with a GET query. Calls _prepare with a GET action. It can be
+        overriden to change behavour.
+        
+        """
         self._prepare(GET)
         return
 
     def do_POST(self):
+        """
+        What to do with a POST query. Calls _prepare with a POST action and a 
+        default response of 201 - Created. It can be overriden to change behavour.
+        
+        """
         self._prepare(POST, 201)
         return
 
     def do_PUT(self):
+        """
+        What to do with a PUT query. Calls _prepare with a PUT action. It can be
+        overriden to change behavour.
+        
+        """
         self._prepare(PUT)
         return
 
     def do_PATCH(self):
+        """
+        What to do with a PATCH query. Calls _prepare with a PATCH action. It can be
+        overriden to change behavour.
+        
+        """
         self._prepare(PATCH)
         return
 
     def do_DELETE(self):
+        """
+        What to do with a DELETE query. Calls _prepare with a DELETE action. It can be
+        overriden to change behavour.
+        
+        """
         self._prepare(DELETE)
         return
 
