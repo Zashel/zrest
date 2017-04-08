@@ -25,7 +25,7 @@ def not_implemented(*args, **kwargs):
     """
     Base function for not implemented methods. Default method for every model
     assigned to app.
-    :retrurns: an str jsonify object: {"Error": "501"}
+    :returns: an str jsonify object: {"Error": "501"}
     
     """
     return json.dumps({"Error": "501"})
@@ -143,21 +143,39 @@ class Handler(BaseHTTPRequestHandler):
         return
 
 class App:
-
-    def __init__(self):
+    """
+    App class to simplify the implementation of the API.
+    
+    :method set_header: Sets a single header with given information.
+    :method set_headers: Updates headers dictionary with given dictionary.
+    :method parse_uri: Gives a dictionary with uri's information to use in
+                       diverse methods.
+    :method get_model: Gives model by name.
+    :method set_model: Sets a new model in app with given information.
+    :method set_method: Sets a single method to a single verb call.
+    :method action: Decides how to show requested query.
+    :method set_ssl: Sets defined key and cert in socket to ssl connections
+    :method run_thread: Runs Application in a separate thread.
+    :method run: Runs application.
+    :method shutdown: Safe shutdown of all threads. 
+                      Called by default by __del__.
+    
+    """
+    def __init__(self, *, handler=Handler, not_implemented=not_implemented):
         self._models = dict()
         self._uris = dict()
         self._orig_uri = dict()
         self._name_by_uri = dict()
         self._simple_uri_by_name = dict()
         self._params = dict()
-        self._handler = Handler
+        self._handler = handler
         self._handler.set_app(self)
         self._server = None
         self._re = dict()
         self._params_searcher = re.compile(r"<(?P<param>[\w]*)>")
         self._key, self._cert = None, None
         self._headers = {"Content-Type": "application/json"}
+        self._not_implemented = not_implemented
 
     def __del__(self):
         self.shutdown()
@@ -210,7 +228,8 @@ class App:
         return self._models(model)
 
     def set_model(self, model, name, uri, allow=ALL):
-        """Sets the model assigned to a name and an uri
+        """
+        Sets the model assigned to a name and an uri
 
         :param model: RestfulBaseInterface subclass instance
         :param name: name assigned to model
@@ -237,7 +256,7 @@ class App:
             uris.append(list_uri)
         for index, suburi in enumerate(uris):
             if not suburi in self._uris:
-                self._uris[suburi] = dict(zip(ALL, [not_implemented for x in range(0, 5)]))
+                self._uris[suburi] = dict(zip(ALL, [self._not_implemented for x in range(0, 5)]))
             compilation = re.compile(suburi, re.IGNORECASE)  # May raise SyntaxError
             self._re[compilation] = suburi
             self._params[suburi] = prepare_params
@@ -254,7 +273,8 @@ class App:
         return final_uri
 
     def set_method(self, name, uri, verb, method=None):
-        """Extends the application of a model in the specified URI
+        """
+        Extends the application of a model in the specified URI
         and verb. You can assign a new method to it.
 
         :param uri: uri assigned, in reqular expression format
@@ -405,6 +425,9 @@ class App:
         self._key, self._cert = key, cert
 
     @threadize
+    def run_thread(self, addr, port):
+        self.run(addr, port)
+
     def run(self, addr, port):
         self._server = HTTPServer((addr, port), self._handler)
         if self._key is not None and self._cert is not None:
