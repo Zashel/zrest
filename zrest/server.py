@@ -22,6 +22,12 @@ ALL = [GET,
        DELETE]
 
 def not_implemented(*args, **kwargs):
+    """
+    Base function for not implemented methods. Default method for every model
+    assigned to app.
+    :retrurns: an str jsonify object: {"Error": "501"}
+    
+    """
     return json.dumps({"Error": "501"})
 
 class Handler(BaseHTTPRequestHandler):
@@ -39,10 +45,17 @@ class Handler(BaseHTTPRequestHandler):
     :method do_GET: calls _prepare with no other parameter than a GET action.
     :method do_POST: calls _prepare with POST action and 201 response as 
                      default.
+    :method do_PUT: calls _prepare with no other parameter than a PUT action.
+    :method do_PATCH: calls _prepare with no other paramenter than a PATCH action.
+    :method do_DELETE: calls _prepare with no other paramenter than a DELETE action.
     
     """
     @property
     def rest_app(self):
+        """
+        Returns app assigned to Handler
+        
+        """
         return self._rest_app
 
     @classmethod
