@@ -60,9 +60,17 @@ class Handler(BaseHTTPRequestHandler):
 
     @classmethod
     def set_app(cls, app):
+        """
+        Defienes the app assigned to the handler. As a class method, if several
+        apps has to be defined, a subclass of Handler for each one is needed.
+        
+        """
         cls._rest_app = app
 
     def _prepare(self, action, response_default=200):
+        """
+        Prepares and sends requested data to client.
+        """
         if action in (POST, PUT, PATCH):
             data = self.rfile.read(int(self.headers["Content-Length"]))
             data = data.decode("utf-8") #To be changed
