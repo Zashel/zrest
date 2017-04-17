@@ -266,7 +266,6 @@ class ShelveModel(RestfulBaseInterface):
         for filename in filter:
             final.extend(self._fetch(filter[filename], filename))
         new_final = list()
-        print("Here")
         for _id in filtered["filter"]:
             for index, item in enumerate(final):
                 if "_id" in item and item["_id"]==_id:
@@ -280,8 +279,10 @@ class ShelveModel(RestfulBaseInterface):
                     else:
                         new_final.append(item)
                         break
-            del(final[index])
-        print("Not here")
+            try:
+                del(final[index])
+            except UnboundLocalError:
+                pass
         return ({"data": new_final,
                  "total": filtered["total"],
                  "page": filtered["page"],
@@ -400,7 +401,6 @@ class ShelveModel(RestfulBaseInterface):
             self._send_pipe(action="replace", filter=filter, data=data, pipe=conn_out)
         else:
             return {"Error": "400"}
-
         return conn_in.recv()
 
     def _replace(self, data, registries, shelf):
@@ -613,13 +613,17 @@ class ShelveModel(RestfulBaseInterface):
                     s_filter = data["filter"]
                 if data["action"] in ("new", "drop", "edit", "replace"):
                     try:
-                        send = self.fetch(s_filter)
+                        fetched = self.fetch(s_filter)
+                        print("FILTER: {}\nFETCH: {}\n".format(s_filter, fetched))
+
+                        send = fetched
                         """After an edit or a replace filter may change...
                            Is it a bug?"""
                     except KeyError:
                         send = None
-                    if data["action"] != "new":
-                        send = {"data": send,
+                    #if data["action"] != "new":
+                    if send is None:
+                        send = {"data": [],
                                 "total": filtered["total"],
                                 "page": filtered["page"],
                                 "items_per_page": filtered["items_per_page"]}

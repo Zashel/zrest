@@ -89,7 +89,7 @@ class Handler(BaseHTTPRequestHandler):
         if not data["payload"] and action == GET:
             response = 404
         self.send_response(response, get_code(response).text)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
+        #self.send_header("Content-Type", "application/json; charset=utf-8")
         headers =  self.rest_app.headers.copy()
         headers.update(data["headers"])
         for header in headers:
@@ -175,7 +175,7 @@ class App:
         self._re = dict()
         self._params_searcher = re.compile(r"<(?P<param>[\w]*)>")
         self._key, self._cert = None, None
-        self._headers = {"Content-Type": "application/json"}
+        self._headers = {"Content-Type": "application/json; charset=utf-8"}
         self._not_implemented = not_implemented
         self._base_uri = str()
 
@@ -331,8 +331,15 @@ class App:
                     payload = json.loads(final["payload"])
                 params = parsed["params"]
                 #if (len(payload["data"]) == 1 and "_embedded" in payload["data"][0]):  # To be changed with HAL HATEOAS
-                if "total" in payload and payload["total"] == 1:
+                print(payload)
+                if ("total" in payload and payload["total"] == 1 and isinstance(payload["data"], list) and
+                        len(payload["data"]) > 0):
                     payload = payload["data"][0]
+                elif ("total" in payload and payload["total"] == 1 and isinstance(payload["data"], list) and
+                        len(payload["data"]) == 0):
+                    payload = payload
+                elif "total" in payload and payload["total"] == 1 and isinstance(payload["data"], dict):
+                    payload = payload["data"]
                 elif "total" in payload and payload["total"] > 1:
                     payload = {self._name_by_uri[parsed["uri"]]: payload}
                 if "Error" in payload:
@@ -410,7 +417,8 @@ class App:
                         query = "?{}".format("&".join(["=".join((key, new_filter[key])) for key in new_filter]))
                     else:
                         query = str()
-                    payload["_links"] = {"self": {"href": location+query}}
+                    #payload["_links"] = {"self": {"href": location+query}}
+                    payload["_links"] = {"self": {"href": location}}
                     for name, item in (("first", first),
                                        ("last", last),
                                        ("prev", prev),
