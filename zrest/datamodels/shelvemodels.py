@@ -562,8 +562,9 @@ class ShelveModel(RestfulBaseInterface):
                 break
             else:
                 send = 0
-                self._wait_to_block(self._meta_path)
-                self._keep_alive(self._meta_path)
+                if self._to_block is True:
+                    self._wait_to_block(self._meta_path)
+                    self._keep_alive(self._meta_path)
                 if "filter" in data and data["action"] not in ("new",):
                     filter = data["filter"]
                     filtered = self._filter(filter)
@@ -610,24 +611,27 @@ class ShelveModel(RestfulBaseInterface):
                             continue
                         else:
                             break
-                if data["action"] == "new":
-                    s_filter = {"_id": total}
+                if self._to_block is True:
+                    if data["action"] == "new":
+                        s_filter = {"_id": total}
+                    else:
+                        s_filter = data["filter"]
+                    if data["action"] in ("new", "drop", "edit", "replace"):
+                        try:
+                            fetched = self.fetch(s_filter)
+                            send = fetched
+                            """After an edit or a replace filter may change...
+                               Is it a bug?"""
+                        except KeyError:
+                            send = None
+                        #if data["action"] != "new":
+                        if send is None:
+                            send = {"data": [],
+                                    "total": filtered["total"],
+                                    "page": filtered["page"],
+                                    "items_per_page": filtered["items_per_page"]}
                 else:
-                    s_filter = data["filter"]
-                if data["action"] in ("new", "drop", "edit", "replace"):
-                    try:
-                        fetched = self.fetch(s_filter)
-                        send = fetched
-                        """After an edit or a replace filter may change...
-                           Is it a bug?"""
-                    except KeyError:
-                        send = None
-                    #if data["action"] != "new":
-                    if send is None:
-                        send = {"data": [],
-                                "total": filtered["total"],
-                                "page": filtered["page"],
-                                "items_per_page": filtered["items_per_page"]}
+                    send = None
                 self._alive = False
                 data["pipe"].send(send)
                 #TODO: send error
