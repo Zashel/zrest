@@ -31,7 +31,8 @@ class ShelveModel(RestfulBaseInterface):
                                                headers=None,
                                                name=None,
                                                items_per_page=50,
-                                               unique=None):
+                                               unique=None,
+                                               to_block = True):
         """
         Initializes ShelveModel
         
@@ -60,6 +61,7 @@ class ShelveModel(RestfulBaseInterface):
         self._unique = unique
         self._name = name
         self.items_per_page = items_per_page
+        self._to_block = to_block
         if index_fields is None:
             self._index_fields = list()
         else:
@@ -571,19 +573,20 @@ class ShelveModel(RestfulBaseInterface):
                     total = next(self)
                     filename_reg = {self._data_path(total % self.groups): total}
                 for filename in filename_reg:
-                    self._wait_to_block(filename)
-                    self._keep_alive(filename)
-                    for field in self.index_fields:
-                        if any([os.path.exists(file)
-                                for file in glob.glob("{}.*".format(self._index_path(field)))]+[False]):
-                            self._wait_to_block(self._index_path(field))
-                            self._keep_alive(self._index_path(field))
+                    if self._to_block is True:
+                        self._wait_to_block(filename)
+                        self._keep_alive(filename)
+                        for field in self.index_fields:
+                            if any([os.path.exists(file)
+                                    for file in glob.glob("{}.*".format(self._index_path(field)))]+[False]):
+                                self._wait_to_block(self._index_path(field))
+                                self._keep_alive(self._index_path(field))
                     while True:
                         try:
-                            if self.is_blocked(self._meta_path) is False:
+                            if self._to_block is False or self.is_blocked(self._meta_path) is False:
                                 self.__getattribute__("_{}".format(data["action"]))(data["data"],
-                                                                                    filename_reg[filename],
-                                                                                    filename)
+                                                                                        filename_reg[filename],
+                                                                                        filename)
                             else:
                                 self._alive = False
                                 time.sleep(0.1)
