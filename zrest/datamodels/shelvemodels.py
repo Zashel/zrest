@@ -617,8 +617,6 @@ class ShelveModel(RestfulBaseInterface):
                 if data["action"] in ("new", "drop", "edit", "replace"):
                     try:
                         fetched = self.fetch(s_filter)
-                        print("FILTER: {}\nFETCH: {}\n".format(s_filter, fetched))
-
                         send = fetched
                         """After an edit or a replace filter may change...
                            Is it a bug?"""
