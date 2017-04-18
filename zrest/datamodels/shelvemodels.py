@@ -363,10 +363,7 @@ class ShelveModel(RestfulBaseInterface):
             self._send_pipe(action="replace", data=data, filter={self._unique: data[self._unique]}, pipe=conn_out)
         else:
             self._send_pipe(action="new", data=data, pipe=conn_out)
-        if self._to_block == True:
-            recv = conn_in.recv()
-        else:
-            recv = None
+        recv = conn_in.recv()
         return recv
 
     def _new(self, data, registry, shelf):
