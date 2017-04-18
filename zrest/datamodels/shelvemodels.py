@@ -317,7 +317,7 @@ class ShelveModel(RestfulBaseInterface):
         for field in data:
             if (any([os.path.exists(file)
                     for file in glob.glob("{}.*".format(self._index_path(field)))]+[False]) and
-                    self.is_blocked(self._index_path(field)) is False):
+                    (self.is_blocked(self._index_path(field)) is False or self._to_block is False)):
                 with shelve_open(self._index_path(field)) as shelf:
                     index = str(data[field])
                     if not index in shelf:
