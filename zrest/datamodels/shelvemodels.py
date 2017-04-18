@@ -357,7 +357,7 @@ class ShelveModel(RestfulBaseInterface):
         test = None
         if self._unique in data:
             test = self.fetch({self._unique: data[self._unique]})
-        if test:
+        if test and "total" in test and test["total"] > 0:
             self._send_pipe(action="replace", data=data, filter={self._unique: data[self._unique]}, pipe=conn_out)
         else:
             self._send_pipe(action="new", data=data, pipe=conn_out)
