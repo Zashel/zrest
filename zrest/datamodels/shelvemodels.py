@@ -32,6 +32,7 @@ class ShelveModel(RestfulBaseInterface):
                                                name=None,
                                                items_per_page=50,
                                                unique=None,
+                                               split_unique=0,
                                                to_block = True):
         """
         Initializes ShelveModel
@@ -59,6 +60,7 @@ class ShelveModel(RestfulBaseInterface):
         self._headers = headers
         self._headers_checked = False
         self._unique = unique
+        self._split_unique = split_unique
         self._name = name
         self.items_per_page = items_per_page
         self._to_block = to_block
@@ -321,9 +323,24 @@ class ShelveModel(RestfulBaseInterface):
                 with shelve_open(self._index_path(field)) as shelf:
                     index = str(data[field])
                     if not index in shelf:
-                        shelf[index] = set()
-                    shelf[index] |= {registry}
-
+                        if field != self._unique:
+                            shelf[str(index)] = set()
+                            shelf[str(index)] |= {registry}
+                        else:
+                            offset = len(str(index))%self._split_unique
+                            last = shelf
+                            if offset:
+                                inter = str(index)[0:offset]
+                                if inter not in last:
+                                    last[inter] = dict()
+                                last = last[inter]
+                            for x in range(ceil(len(str(index))/self._unique)):
+                                inter = str(index)[offset+x*self._split_unique:offset+(x+1)*self._split_unique]
+                                if inter not in last:
+                                    last[inter] = dict()
+                                last = last[inter]
+                            last = registry
+                    
     def _del_index(self, data, registry):
         for field in data:
             if (any([os.path.exists(file)
@@ -502,8 +519,19 @@ class ShelveModel(RestfulBaseInterface):
                 if any([os.path.exists(file)
                         for file in glob.glob("{}.*".format(self._index_path(field)))]+[False]):
                     with shelve_open(self._index_path(field), "r") as index:
-                        if str(filter[field]) in index:
-                            subfilter = index[str(filter[field])]
+                        if self._unique != field:
+                            if str(filter[field]) in index:
+                                subfilter = index[str(filter[field])]
+                        else:
+                            offset = len(str(index))%self._split_unique
+                            last = shelf
+                            if offset:
+                                inter = str(index)[0:offset]
+                                last = last[inter]
+                            for x in range(ceil(len(str(index))/self._unique)):
+                                inter = str(index)[offset+x*self._split_unique:offset+(x+1)*self._split_unique]
+                                last = last[inter]
+                            subfilter = {last}
             final_set &= subfilter
         final_set = list(final_set)
         final_set.sort()
