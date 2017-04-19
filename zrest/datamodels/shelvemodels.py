@@ -16,6 +16,7 @@ from multiprocessing import Pipe
 from zashel.utils import threadize
 from zrest.basedatamodel import *
 from zrest.exceptions import *
+from math import ceil
 
 
 class ShelveModel(RestfulBaseInterface):
@@ -32,6 +33,7 @@ class ShelveModel(RestfulBaseInterface):
                                                name=None,
                                                items_per_page=50,
                                                unique=None,
+                                               unique_is_id=False,
                                                split_unique=0,
                                                to_block = True):
         """
@@ -45,6 +47,8 @@ class ShelveModel(RestfulBaseInterface):
         :param name: name of the model
         :param items_per_page: amount of items each page
         :param unique: unique field. One bye the moment
+        :param split_unique: number of characters of each piece in which unique is
+                             splitted
 
         """
         try:
@@ -61,6 +65,7 @@ class ShelveModel(RestfulBaseInterface):
         self._headers_checked = False
         self._unique = unique
         self._split_unique = split_unique
+        self._unique_is_id = unique_is_id
         self._name = name
         self.items_per_page = items_per_page
         self._to_block = to_block
@@ -81,8 +86,9 @@ class ShelveModel(RestfulBaseInterface):
                 shelf["class"] = self.__class__.__name__
                 shelf["name"] = self._name
             for index in self.index_fields:
-                with shelve_open(self._index_path(index)) as shelf:
-                    shelf["filepath"] = self._index_path(index)
+                if (self._unique_is_id is True and self._unique != index) or self._unique_is_id is False:
+                    with shelve_open(self._index_path(index)) as shelf:
+                        shelf["filepath"] = self._index_path(index)
             for group in range(0, groups):
                 with shelve_open(self._data_path(group)) as shelf:
                     shelf["filepath"] = self._data_path(group)
@@ -322,13 +328,12 @@ class ShelveModel(RestfulBaseInterface):
                     (self.is_blocked(self._index_path(field)) is False or self._to_block is False)):
                 with shelve_open(self._index_path(field)) as shelf:
                     index = str(data[field])
+                    last = shelf
                     if not index in shelf:
                         if field != self._unique:
                             shelf[str(index)] = set()
-                            shelf[str(index)] |= {registry}
-                        else:
+                        elif self._unique_is_id is False:
                             offset = len(str(index))%self._split_unique
-                            last = shelf
                             if offset:
                                 inter = str(index)[0:offset]
                                 if inter not in last:
@@ -340,6 +345,10 @@ class ShelveModel(RestfulBaseInterface):
                                     last[inter] = dict()
                                 last = last[inter]
                             last = registry
+                    if field != self._unique:
+                        shelf[str(index)] |= {registry}
+                    else:
+                        last = registry
                     
     def _del_index(self, data, registry):
         for field in data:
@@ -498,6 +507,9 @@ class ShelveModel(RestfulBaseInterface):
         fields = list()
         page = 1
         items_per_page = self.items_per_page
+        if self._unique_is_id and self._unique in filter:
+            filter["_id"] = filter[self._unique]
+            del(filter[self._unique])
         if "order" in filter:
             order = filter["order"]
             order = order.split(",")
@@ -524,7 +536,7 @@ class ShelveModel(RestfulBaseInterface):
                                 subfilter = index[str(filter[field])]
                         else:
                             offset = len(str(index))%self._split_unique
-                            last = shelf
+                            last = index
                             if offset:
                                 inter = str(index)[0:offset]
                                 last = last[inter]
@@ -599,8 +611,12 @@ class ShelveModel(RestfulBaseInterface):
                     filter = filtered["filter"]
                     filename_reg = self._get_datafile(filter)
                 else:
-                    total = next(self)
-                    filename_reg = {self._data_path(total % self.groups): total}
+                    if self._unique_is_id and self._unique in data:
+                        filename_reg = data[self._unique]
+                        del(data[self._unique])
+                    else:
+                        total = next(self)
+                        filename_reg = {self._data_path(total % self.groups): total}
                 for filename in filename_reg:
                     if self._to_block is True:
                         self._wait_to_block(filename)
