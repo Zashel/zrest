@@ -306,7 +306,7 @@ class ShelveModel(RestfulBaseInterface):
             for item in registries:
                 try:
                     data = file[str(item)]
-                except:
+                except KeyError:
                     data = None
                 if isinstance(data, list) and self.headers is not None:
                     if data is not None and len(data)==len(self.headers):
