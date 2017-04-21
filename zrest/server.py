@@ -428,7 +428,7 @@ class App:
                                                "items_per_page": items_per_page})
                             payload["_links"] = {name: {
                                     "href": location+"?{}".format(
-                                        "&".join(["=".join((key, new_filter[key])) for key in new_filter]))
+                                        "&".join(["=".join((key, str(new_filter[key]))) for key in new_filter]))
                                         }}
                     final["headers"]["Location"] = location
                 final["payload"] = payload
