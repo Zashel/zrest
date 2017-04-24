@@ -108,15 +108,16 @@ class Handler(BaseHTTPRequestHandler):
                 if data["payload"]:
                     json_data = data["payload"]
                     for index, item in enumerate(json_data["_embedded"]):
-                        if "prev" not in json_data["_links"] and index == 0:
-                            for header in json_data["_embedded"][item]:
-                                if header != "_links":
-                                    headers.append(header)
-                            headers.sort()
-                            self.wfile.write(bytearray(";".join(headers)+"\n"))
-                        self.wfile.write(bytearray(
-                                ";".join([json_data["_embedded"][header] for header in headers]) + "\n")
-                                )
+                        for row in json_data["_embedded"][item]:
+                            if "prev" not in json_data["_links"] and index == 0:
+                                for header in row:
+                                    if header != "_links":
+                                        headers.append(header)
+                                headers.sort()
+                                self.wfile.write(bytearray(";".join(headers)+"\n"))
+                            self.wfile.write(bytearray(
+                                    ";".join([row for header in headers]) + "\n")
+                                    )
                     if "next" in json_data["_links"]:
                         data = self.rest_app.action(action, json_data["_links"]["next"]["href"])
                     else:
