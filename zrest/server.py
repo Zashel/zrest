@@ -112,9 +112,9 @@ class Handler(BaseHTTPRequestHandler):
                     else:
                         embedded = json_data
                     for index, item in enumerate(embedded):
-                        if isinstance(embedded[item], dict):
-                            embedded[item] = embedded.copy()
                         for row in embedded[item]:
+                            if isinstance(embedded[item], dict):
+                                row = embedded[item]
                             if "prev" not in json_data["_links"] and index == 0:
                                 for header in row:
                                     if header != "_links":
