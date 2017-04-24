@@ -109,21 +109,29 @@ class Handler(BaseHTTPRequestHandler):
                     json_data = data["payload"]
                     if "_embedded" in json_data:
                         embedded = json_data["_embedded"]
+                        for index, item in enumerate(embedded):
+                            print("Embedded {}".format(embedded))
+                            for row in embedded:
+                                if "prev" not in json_data["_links"] and index == 0:
+                                    for header in row:
+                                        if header != "_links":
+                                            headers.append(header)
+                                    headers.sort()
+                                    self.wfile.write(bytearray(";".join(headers)+"\n", "utf-8"))
+                                self.wfile.write(bytearray(
+                                        ";".join([str(row[header]) for header in headers]) + "\n",
+                                        "utf-8")
+                                        )
                     else:
-                        embedded = json_data
-                    for index, item in enumerate(embedded):
-                        print("Embedded {}".format(embedded))
-                        for row in embedded:
-                            if "prev" not in json_data["_links"] and index == 0:
-                                for header in row:
-                                    if header != "_links":
-                                        headers.append(header)
-                                headers.sort()
-                                self.wfile.write(bytearray(";".join(headers)+"\n", "utf-8"))
-                            self.wfile.write(bytearray(
-                                    ";".join([str(row[header]) for header in headers]) + "\n",
-                                    "utf-8")
-                                    )
+                        for header in json_data:
+                            if header != "_links":
+                                headers.append(header)
+                            headers.sort()
+                            self.wfile.write(bytearray(";".join(headers) + "\n", "utf-8"))
+                        self.wfile.write(bytearray(
+                            ";".join([str(row[header]) for header in headers]) + "\n",
+                            "utf-8")
+                        )
                     if "next" in json_data["_links"]:
                         data = self.rest_app.action(action, json_data["_links"]["next"]["href"])
                     else:
