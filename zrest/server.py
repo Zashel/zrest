@@ -114,9 +114,10 @@ class Handler(BaseHTTPRequestHandler):
                                     if header != "_links":
                                         headers.append(header)
                                 headers.sort()
-                                self.wfile.write(bytearray(";".join(headers)+"\n"))
+                                self.wfile.write(bytearray(";".join(headers)+"\n", "utf-8"))
                             self.wfile.write(bytearray(
-                                    ";".join([row for header in headers]) + "\n")
+                                    ";".join([row for header in headers]) + "\n",
+                                    "utf-8")
                                     )
                     if "next" in json_data["_links"]:
                         data = self.rest_app.action(action, json_data["_links"]["next"]["href"])
