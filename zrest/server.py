@@ -465,10 +465,10 @@ class App:
                         if item != page and item <= pages and item >= 1:
                             new_filter.update({"page": item,
                                                "items_per_page": items_per_page})
-                            payload["_links"] = {name: {
+                            payload["_links"].update({name: {
                                     "href": location+"?{}".format(
                                         "&".join(["=".join((key, str(new_filter[key]))) for key in new_filter]))
-                                        }}
+                                        }})
                     final["headers"]["Location"] = location
                 final["payload"] = payload
         else:
