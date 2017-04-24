@@ -92,14 +92,18 @@ class Handler(BaseHTTPRequestHandler):
         #self.send_header("Content-Type", "application/json; charset=utf-8")
         headers =  self.rest_app.headers.copy()
         headers.update(data["headers"])
-        for header in headers:
-            self.send_header(header, headers[header])
-        self.end_headers()
         if self.rest_app.headers["Content-Type"].startswith("application/json"):
+            for header in headers:
+                self.send_header(header, headers[header])
+            self.end_headers()
             if data["payload"]:
                 self.wfile.write(bytearray(json.dumps(data["payload"]), "utf-8"))
         elif self.rest_app.headers["Content-Type"].startswith("text/csv") and action == GET:
-            headers = list()
+            headers.update({["Content-Type": "text/csv; charset=utf-8"})
+            for header in headers:
+                self.send_header(header, headers[header])
+            self.end_headers()
+            headers = list() #This is another headers
             while True:
                 if data["payload"]:
                     json_data = json.loads(data)
