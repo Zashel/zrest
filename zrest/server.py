@@ -95,8 +95,28 @@ class Handler(BaseHTTPRequestHandler):
         for header in headers:
             self.send_header(header, headers[header])
         self.end_headers()
-        if data["payload"]:
-            self.wfile.write(bytearray(json.dumps(data["payload"]), "utf-8"))
+        if self.rest_app.headers["Content-Type"].startswith("application/json"):
+            if data["payload"]:
+                self.wfile.write(bytearray(json.dumps(data["payload"]), "utf-8"))
+        elif self.rest_app.headers["Content-Type"].startswith("text/csv") and action == GET:
+            headers = list()
+            while True:
+                if data["payload"]:
+                    json_data = json.loads(data)
+                    for index, item in enumerate(json_data["_embedded"]):
+                        if "prev" not in json_data["_links"] and index == 0:
+                            for header in json_data["_embedded"][item]:
+                                if header != "_links":
+                                    headers.append(header)
+                            headers.sort()
+                            self.wfile.write(bytearray(";".join(headers)+"\n"))
+                        self.wfile.write(bytearray(
+                                ";".join([json_data["_embedded"][header] for header in headers]) + "\n")
+                                )
+                    if "next" in json_data["_links"]:
+                        data = self.rest_app.action(action, json_data["_links"]["next"]["href"])
+                    else:
+                        break
 
     def do_GET(self):
         """
@@ -378,8 +398,8 @@ class App:
                             items_per_page = payload["_embedded"][embedded]["items_per_page"]
                             if total > items_per_page:
                                 pages = ceil(total/items_per_page)
-                                next = pages+1
-                                prev = pages-1
+                                next = page+1
+                                prev = page-1
                                 first = 1
                                 last = pages
                             payload["_embedded"][embedded] = payload["_embedded"][embedded]["data"]
@@ -423,9 +443,9 @@ class App:
                                        ("last", last),
                                        ("prev", prev),
                                        ("next", next)):
-                        if item != page and item < pages and item > 1:
+                        if item != page and item <= pages and item >= 1:
                             new_filter.update({"page": item,
-                                               "items_per_page": items_per_page1})
+                                               "items_per_page": items_per_page})
                             payload["_links"] = {name: {
                                     "href": location+"?{}".format(
                                         "&".join(["=".join((key, str(new_filter[key]))) for key in new_filter]))
