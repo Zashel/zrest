@@ -111,7 +111,7 @@ class Handler(BaseHTTPRequestHandler):
                         embedded = json_data["_embedded"]
                         for index, item in enumerate(embedded):
                             print("Embedded {}".format(embedded))
-                            for row in embedded:
+                            for row in embedded[item]:
                                 if "prev" not in json_data["_links"] and index == 0:
                                     for header in row:
                                         if header != "_links":
