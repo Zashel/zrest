@@ -106,7 +106,7 @@ class Handler(BaseHTTPRequestHandler):
             headers = list() #This is another headers
             while True:
                 if data["payload"]:
-                    json_data = json.loads(data)
+                    json_data = data["payload"]
                     for index, item in enumerate(json_data["_embedded"]):
                         if "prev" not in json_data["_links"] and index == 0:
                             for header in json_data["_embedded"][item]:
