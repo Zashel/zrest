@@ -103,12 +103,16 @@ class Handler(BaseHTTPRequestHandler):
             for header in headers:
                 self.send_header(header, headers[header])
             self.end_headers()
-            headers = list() #This is another headers
+            headers = list() #These are other headers
             while True:
                 if data["payload"]:
                     json_data = data["payload"]
-                    for index, item in enumerate(json_data["_embedded"]):
-                        for row in json_data["_embedded"][item]:
+                    if "_embedded" in json_data:
+                        embedded = json_data["_embedded"]
+                    else:
+                        embedded = json_data
+                    for index, item in enumerate(embedded):
+                        for row in embedded[item]:
                             if "prev" not in json_data["_links"] and index == 0:
                                 for header in row:
                                     if header != "_links":
