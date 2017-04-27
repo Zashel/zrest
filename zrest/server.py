@@ -345,7 +345,7 @@ class App:
         final_uri = self.set_model(model, name, uri, allow=[])
         if method is None:
             method = model.__getattribute__(verb.lower())
-        elif isinstance(method, str) and name in self.models and hasattr(model, method):
+        elif isinstance(method, str) and name in self._models and hasattr(model, method):
             method = model.__getattribute__(method)
         self._uris[final_uri][verb] = method
 
