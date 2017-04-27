@@ -329,6 +329,8 @@ class App:
         :param method: method to assign. None by default. If specified 
                        model, it'll take that model's method. Eitherway,
                        not_implemented will be asigned.
+                       It accept either the name of an existing model method or
+                       the direct method.
         :param name: model's name. If it exists, it'll use it's methods
                      if no other is assigned. If it doesn't exist, It'll
                      be created as base for implementation.
@@ -343,6 +345,8 @@ class App:
         final_uri = self.set_model(model, name, uri, allow=[])
         if method is None:
             method = model.__getattribute__(verb.lower())
+        elif isinstance(method, str) and name in self.models and hasattr(model, method):
+            method = model.__getattribute__(method)
         self._uris[final_uri][verb] = method
 
     def action(self, verb, uri, **kwargs):
