@@ -85,6 +85,7 @@ class ShelveModel(RestfulBaseInterface):
                 shelf["groups"] = groups
                 shelf["class"] = self.__class__.__name__
                 shelf["name"] = self._name
+                shelf["ids"] = list()
             for index in self.index_fields:
                 if (self._unique_is_id is True and self._unique != index) or self._unique_is_id is False:
                     with shelve_open(self._index_path(index)) as shelf:
@@ -371,10 +372,54 @@ class ShelveModel(RestfulBaseInterface):
                         return 2
         return 0
 
+    def load(self, data, **kwargs):
+        """
+        Loads new given data in the database
+        Blocks until finnish
+        :param data: list with a dictionary for each item to upload
+        :returns: New Data
+        """
+        conn_in, conn_out = Pipe(False)
+        test = None
+        if self._unique in data:
+            return {}
+        self._send_pipe(action="load", data=data)
+        recv = conn_in.recv()
+
+    def _load(self, data, filename_reg):
+        for filename in filename_reg:
+            with shelve_open(filename) as shelf:
+                for index in filename_reg[filename]:
+                    new_data = data[str(index)]
+                    if self.headers is not None:
+                        new_data = list()
+                        for header in self.headers:
+                            try:
+                                new_data.append(data[str(index)][header])
+                            except KeyError:
+                                new_data.append("")
+                    shelf[str(index)] = new_data
+         for index_name in self.index_fields:
+             index_dict = dict()
+             for index in data:
+                 if str(data[index][index_name]) not in index_dict:
+                     index_dict[str(data[index][index_name])] = set()
+                 index_dict[str(data[index][index_name])].add(int(index))
+             with shelve_open(index_file) as shelf:
+                 for index in index_dict:
+                     if index not in shelf:
+                         shelf[index] = index_dict[index]
+                     else:
+                         shelf[index] |= index_dict[index]
+         with shelve_open(self._meta_path) as shelf:
+             total, next = len(self), next(self)
+             shelf["total"] = total + len(data)
+             shelf["next"] = next + len(data)
+
     def new(self, data, **kwargs): #TODO: Errors setting new data
         """
         Set new given data in the database
-        Blocks untill finnish
+        Blocks until finnish
         :param data: dictionary with given data. Saved as is if self.headers is None
         :returns: New Data
 
@@ -407,6 +452,9 @@ class ShelveModel(RestfulBaseInterface):
             total, next_ = len(self), next(self) #Bug!
             file["total"] = total + 1
             file["next"] = next_ + 1
+            ids = list(file["ids"])
+            ids.append(str(registry))
+            file["ids"] = ids
         self._set_index(data, registry)
 
     def replace(self, filter, data, **kwargs):
@@ -500,9 +548,15 @@ class ShelveModel(RestfulBaseInterface):
                         del(file[str(reg)])
                         with shelve_open(self._meta_path) as file:
                             file["total"] -= 1
+                            ids = list(file["ids"])
+                            del(ids.index(str(reg)))
+                            file["ids"] = ids
 
     def _filter(self, filter):
-        final_set = set(range(0, next(self)))
+        with shelve_open(self._meta_path) as shelf:
+            ids = list(shelf["ids"])
+            final_set = set([int(id) for id in ids])
+        #final_set = set(range(0, next(self)))
         order = str()
         fields = list()
         page = 1
@@ -611,9 +665,24 @@ class ShelveModel(RestfulBaseInterface):
                     filter = filtered["filter"]
                     filename_reg = self._get_datafile(filter)
                 else:
-                    if self._unique_is_id and self._unique in data:
-                        filename_reg = data[self._unique]
+                    if self._unique_is_id and self._unique in data["data"]:
+                        filename_reg = data["data"][self._unique]
+                        filename_reg = {self._data_path(filename_reg ½ self.groups): filename_reg}
                         del(data[self._unique])
+                    elif isinstance(data["data"], list) and data["action"] == "load":
+                        total = next(self)
+                        total_reg = len(data["data"])
+                        filename_reg = dict()
+                        for index, x in enumerate(range(total, total+total_reg)):
+                            data_path = self._data_path(x % self.groups)
+                            if data_path not in filename_reg:
+                                filename_reg[data_path] = set()
+                            filename_reg[data_path].add(x)
+                            if not "dict_data" in data:
+                                data["dict_data"] = dict()
+                            data["dict_data"][str(x)] = data["data"][index]
+                        data["data"] = dict(data["dict_data"])
+                        del(data["dict_data"])
                     else:
                         total = next(self)
                         filename_reg = {self._data_path(total % self.groups): total}
@@ -626,48 +695,54 @@ class ShelveModel(RestfulBaseInterface):
                                     for file in glob.glob("{}.*".format(self._index_path(field)))]+[False]):
                                 self._wait_to_block(self._index_path(field))
                                 self._keep_alive(self._index_path(field))
-                    while True:
-                        try:
-                            if self._to_block is False or self.is_blocked(self._meta_path) is False:
-                                self.__getattribute__("_{}".format(data["action"]))(data["data"],
+                    if data["action"] != "load":
+                        while True:
+                            try:
+                                if self._to_block is False or self.is_blocked(self._meta_path) is False:
+                                    self.__getattribute__("_{}".format(data["action"]))(data["data"],
                                                                                         filename_reg[filename],
                                                                                         filename)
-                            else:
-                                self._alive = False
+                                else:
+                                    self._alive = False
+                                    time.sleep(0.1)
+                                    self._wait_to_block(self._meta_path)
+                                    self._keep_alive(self._meta_path)
+                                    for filename in filename_reg:
+                                        self._wait_to_block(filename)
+                                        self._keep_alive(filename)
+                                        for field in self.index_fields:
+                                            if any([os.path.exists(file)
+                                                    for file in glob.glob("{}.*".format(self._index_path(field)))] +
+                                                           [False]):
+                                                self._wait_to_block(self._index_path(field))
+                                                self._keep_alive(self._index_path(field))
+                                    continue
+                            except (KeyboardInterrupt, SystemExit):
+                                raise
+                            except Exception as e:
+                                print(e)
                                 time.sleep(0.1)
-                                self._wait_to_block(self._meta_path)
-                                self._keep_alive(self._meta_path)
-                                for filename in filename_reg:
-                                    self._wait_to_block(filename)
-                                    self._keep_alive(filename)
-                                    for field in self.index_fields:
-                                        if any([os.path.exists(file)
-                                                for file in glob.glob("{}.*".format(self._index_path(field)))] +
-                                                       [False]):
-                                            self._wait_to_block(self._index_path(field))
-                                            self._keep_alive(self._index_path(field))
                                 continue
-                        except (KeyboardInterrupt, SystemExit):
-                            raise
-                        except Exception as e:
-                            print(e)
-                            time.sleep(0.1)
-                            continue
-                        else:
-                            break
+                            else:
+                                break
+                    elif data["action"] == "load":
+                        self._load(data["data"], filename_reg)
                 if self._to_block is True:
                     if data["action"] == "new":
                         s_filter = {"_id": total}
                     else:
                         s_filter = data["filter"]
-                    if data["action"] in ("new", "drop", "edit", "replace"):
-                        try:
-                            fetched = self.fetch(s_filter)
-                            send = fetched
-                            """After an edit or a replace filter may change...
-                               Is it a bug?"""
-                        except KeyError:
-                            send = None
+                    if data["action"] in ("new", "drop", "edit", "replace", "load"):
+                        if data["action"] == "load":
+                           send = None
+                        else:
+                            try:
+                                fetched = self.fetch(s_filter)
+                                send = fetched
+                                """After an edit or a replace filter may change...
+                                   Is it a bug?"""
+                            except KeyError:
+                                send = None
                         #if data["action"] != "new":
                         if send is None:
                             send = {"data": [],
