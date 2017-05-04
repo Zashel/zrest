@@ -16,11 +16,13 @@ POST = "POST"
 PUT = "PUT"
 PATCH = "PATCH"
 DELETE = "DELETE"
+LOAD = "LOAD"
 ALL = [GET,
        POST,
        PUT,
        PATCH,
-       DELETE]
+       DELETE,
+       LOAD]
 
 def not_implemented(*args, **kwargs):
     """
@@ -72,12 +74,12 @@ class Handler(BaseHTTPRequestHandler):
         """
         Prepares and sends requested data to client.
         :param action: Action to response. It may be one of predefined:
-                       GET, PUT, POST, PATCH, DELETE
+                       GET, PUT, POST, PATCH, DELETE, LOAD
         :param response_default: Response code by default in case everything
                                  goes alright. 200 - OK by default.
 
         """
-        if action in (POST, PUT, PATCH):
+        if action in (POST, PUT, PATCH, LOAD):
             data = self.rfile.read(int(self.headers["Content-Length"]))
             data = data.decode("utf-8") #To be changed
             data = self.rest_app.action(action, self.path, data=data)
@@ -182,6 +184,15 @@ class Handler(BaseHTTPRequestHandler):
         self._prepare(DELETE)
         return
 
+    def do_LOAD(self):
+        """
+        What to do with a LOAD query. Calls _prepare with a LOAD action. It can be overriden
+        to change behavour.
+
+        """
+        self._prepare(LOAD, 201)
+        return
+
 class App:
     """
     App class to simplify the implementation of the API.
@@ -283,7 +294,7 @@ class App:
         :returns: uri setted as index of all dicts
 
         """
-        assert all([hasattr(model, attr) for attr in ("get", "post", "put", "patch", "delete")])
+        assert all([hasattr(model, attr) for attr in ("get", "post", "put", "patch", "delete", "load")])
         uri = self._base_uri.strip(r"$")+uri.strip(r"^")
         if hasattr(model, "name") is True:
             model.name = name
@@ -325,7 +336,7 @@ class App:
         :param uri: uri assigned, in reqular expression format
                     ie: r"/model/<_id>"
                     Don't have to worry about queries.
-        :param verb: action POST, PUT, PATCH, GET or DELETE #TODO: HEAD and OPTIONS
+        :param verb: action POST, PUT, PATCH, GET, DELETE, LOAD #TODO: HEAD and OPTIONS
         :param method: method to assign. None by default. If specified 
                        model, it'll take that model's method. Eitherway,
                        not_implemented will be asigned.
