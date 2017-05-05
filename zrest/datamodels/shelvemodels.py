@@ -85,7 +85,7 @@ class ShelveModel(RestfulBaseInterface):
                 shelf["groups"] = groups
                 shelf["class"] = self.__class__.__name__
                 shelf["name"] = self._name
-                shelf["ids"] = list()
+                shelf["ids"] = list()
             for index in self.index_fields:
                 if (self._unique_is_id is True and self._unique != index) or self._unique_is_id is False:
                     with shelve_open(self._index_path(index)) as shelf:
@@ -399,19 +399,19 @@ class ShelveModel(RestfulBaseInterface):
                             except KeyError:
                                 new_data.append("")
                     shelf[str(index)] = new_data
-         for index_name in self.index_fields:
+        for index_name in self.index_fields:
              index_dict = dict()
              for index in data:
                  if str(data[index][index_name]) not in index_dict:
                      index_dict[str(data[index][index_name])] = set()
                  index_dict[str(data[index][index_name])].add(int(index))
-             with shelve_open(index_file) as shelf:
+             with shelve_open(self.index_path(index_name)) as shelf:
                  for index in index_dict:
                      if index not in shelf:
                          shelf[index] = index_dict[index]
                      else:
                          shelf[index] |= index_dict[index]
-         with shelve_open(self._meta_path) as shelf:
+        with shelve_open(self._meta_path) as shelf:
              total, next = len(self), next(self)
              shelf["total"] = total + len(data)
              shelf["next"] = next + len(data)
@@ -549,7 +549,7 @@ class ShelveModel(RestfulBaseInterface):
                         with shelve_open(self._meta_path) as file:
                             file["total"] -= 1
                             ids = list(file["ids"])
-                            del(ids.index(str(reg)))
+                            del(ids[ids.index(str(reg))])
                             file["ids"] = ids
 
     def _filter(self, filter):
@@ -667,7 +667,7 @@ class ShelveModel(RestfulBaseInterface):
                 else:
                     if self._unique_is_id and self._unique in data["data"]:
                         filename_reg = data["data"][self._unique]
-                        filename_reg = {self._data_path(filename_reg ½ self.groups): filename_reg}
+                        filename_reg = {self._data_path(filename_reg%self.groups): filename_reg}
                         del(data[self._unique])
                     elif isinstance(data["data"], list) and data["action"] == "load":
                         total = next(self)
