@@ -372,7 +372,7 @@ class ShelveModel(RestfulBaseInterface):
                         return 2
         return 0
 
-    def load(self, data, **kwargs):
+    def insert(self, data, **kwargs):
         """
         Loads new given data in the database
         Blocks until finnish
@@ -383,10 +383,10 @@ class ShelveModel(RestfulBaseInterface):
         test = None
         if self._unique is not None:
             return {}
-        self._send_pipe(action="load", data=data)
+        self._send_pipe(action="insert", data=data)
         recv = conn_in.recv()
 
-    def _load(self, data, filename_reg):
+    def _insert(self, data, filename_reg):
         for filename in filename_reg:
             with shelve_open(filename) as shelf:
                 for index in filename_reg[filename]:
@@ -669,7 +669,7 @@ class ShelveModel(RestfulBaseInterface):
                         filename_reg = data["data"][self._unique]
                         filename_reg = {self._data_path(filename_reg%self.groups): filename_reg}
                         del(data[self._unique])
-                    elif isinstance(data["data"], list) and data["action"] == "load":
+                    elif isinstance(data["data"], list) and data["action"] == "insert":
                         total = next(self)
                         total_reg = len(data["data"])
                         filename_reg = dict()
@@ -695,7 +695,7 @@ class ShelveModel(RestfulBaseInterface):
                                     for file in glob.glob("{}.*".format(self._index_path(field)))]+[False]):
                                 self._wait_to_block(self._index_path(field))
                                 self._keep_alive(self._index_path(field))
-                    if data["action"] != "load":
+                    if data["action"] != "insert":
                         while True:
                             try:
                                 if self._to_block is False or self.is_blocked(self._meta_path) is False:
@@ -725,14 +725,14 @@ class ShelveModel(RestfulBaseInterface):
                                 continue
                             else:
                                 break
-                    elif data["action"] == "load":
+                    elif data["action"] == "insert":
                         self._load(data["data"], filename_reg)
                 if self._to_block is True:
                     if data["action"] == "new":
                         s_filter = {"_id": total}
                     else:
                         s_filter = data["filter"]
-                    if data["action"] in ("new", "drop", "edit", "replace", "load"):
+                    if data["action"] in ("new", "drop", "edit", "replace", "insert"):
                         if data["action"] == "load":
                            send = None
                         else:

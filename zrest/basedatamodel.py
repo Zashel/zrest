@@ -62,6 +62,15 @@ class ModelBaseInterface:
 
         """
 
+    def insert(self, filter, **kwargs):
+        """
+        Inserts data
+        :param data:  Data to insert
+        :return: statuscode
+        :raises: DataModelDropError
+
+        """
+
 class RestfulBaseInterface(ModelBaseInterface):
     """
     Base interface for restful models.
@@ -161,8 +170,15 @@ class RestfulBaseInterface(ModelBaseInterface):
         data = self.edit(self._parse(filter), self._parse(data), **kwargs)
         return self._return(data)
 
-    def load(self, *args, **kwargs):
-        pass
+    def load(self, *, data, **kwargs):
+        """
+        For LOAD methods
+        :param data: data to load
+        :return: Data patched
+
+        """
+        data = self.insert(self._parse(data), **kwargs)
+        return self._return(data)
 
     def close(self):
         pass
