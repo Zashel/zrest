@@ -405,7 +405,7 @@ class ShelveModel(RestfulBaseInterface):
                  if str(data[index][index_name]) not in index_dict:
                      index_dict[str(data[index][index_name])] = set()
                  index_dict[str(data[index][index_name])].add(int(index))
-             with shelve_open(self.index_path(index_name)) as shelf:
+             with shelve_open(self._index_path[index_name]) as shelf:
                  for index in index_dict:
                      if index not in shelf:
                          shelf[index] = index_dict[index]
