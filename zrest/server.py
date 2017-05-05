@@ -294,7 +294,7 @@ class App:
         :returns: uri setted as index of all dicts
 
         """
-        assert all([hasattr(model, attr) for attr in ("get", "post", "put", "patch", "delete", "load")])
+        assert all([hasattr(model, attr) for attr in ("get", "post", "put", "patch", "delete")])
         uri = self._base_uri.strip(r"$")+uri.strip(r"^")
         if hasattr(model, "name") is True:
             model.name = name
