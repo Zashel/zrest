@@ -381,7 +381,7 @@ class ShelveModel(RestfulBaseInterface):
         """
         conn_in, conn_out = Pipe(False)
         test = None
-        if self._unique in data:
+        if self._unique is not None:
             return {}
         self._send_pipe(action="load", data=data)
         recv = conn_in.recv()
