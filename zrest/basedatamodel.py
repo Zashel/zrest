@@ -177,6 +177,7 @@ class RestfulBaseInterface(ModelBaseInterface):
         :return: Data patched
 
         """
+        print(kwargs)
         data = self.insert(self._parse(data), **kwargs)
         return self._return(data)
 
