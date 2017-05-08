@@ -251,6 +251,7 @@ class App:
         """
         parsed = urlparse(uri)
         final_data = list()
+        final_data = list()
         path = parsed.path.strip(".")
         for expr in self._re:
             data = expr.match(path)

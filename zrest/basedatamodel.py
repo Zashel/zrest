@@ -62,7 +62,7 @@ class ModelBaseInterface:
 
         """
 
-    def insert(self, filter, **kwargs):
+    def insert(self, data, filter, **kwargs):
         """
         Inserts data
         :param data:  Data to insert
