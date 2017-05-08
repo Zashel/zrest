@@ -412,9 +412,9 @@ class ShelveModel(RestfulBaseInterface):
                      else:
                          shelf[index] |= index_dict[index]
         with shelve_open(self._meta_path) as shelf:
-             total, next = len(self), next(self)
+             total, next_ = len(self), next(self)
              shelf["total"] = total + len(data)
-             shelf["next"] = next + len(data)
+             shelf["next"] = next_ + len(data)
 
     def new(self, data, **kwargs): #TODO: Errors setting new data
         """
