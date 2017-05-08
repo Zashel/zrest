@@ -728,10 +728,11 @@ class ShelveModel(RestfulBaseInterface):
                 if data["action"] == "insert":
                     self._insert(data["data"], filename_reg)
                 if self._to_block is True:
-                    if data["action"] == "new":
-                        s_filter = {"_id": total}
-                    else:
-                        s_filter = data["filter"]
+                    if data["action"] != "insert":
+                        if data["action"] == "new":
+                            s_filter = {"_id": total}
+                        else:
+                            s_filter = data["filter"]
                     if data["action"] in ("new", "drop", "edit", "replace", "insert"):
                         if data["action"] == "load":
                            send = None
