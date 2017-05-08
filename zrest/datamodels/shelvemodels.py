@@ -744,8 +744,11 @@ class ShelveModel(RestfulBaseInterface):
                                    Is it a bug?"""
                             except KeyError:
                                 send = None
-                        #if data["action"] != "new":
                         if send is None:
+                            if data["action"] in ("new", "insert"):
+                                filtered = {"total": 1,
+                                            "page": 1,
+                                            "items_per_page": self.items_per_page}
                             send = {"data": [],
                                     "total": filtered["total"],
                                     "page": filtered["page"],
