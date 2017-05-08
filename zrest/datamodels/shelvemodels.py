@@ -380,11 +380,11 @@ class ShelveModel(RestfulBaseInterface):
         :returns: New Data
         """
         conn_in, conn_out = Pipe(False)
-        test = None
         if self._unique is not None:
             return {}
-        self._send_pipe(action="insert", data=data)
+        self._send_pipe(action="insert", data=data, pipe=conn_out)
         recv = conn_in.recv()
+        return recv
 
     def _insert(self, data, filename_reg):
         for filename in filename_reg:
