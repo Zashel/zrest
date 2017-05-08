@@ -734,7 +734,7 @@ class ShelveModel(RestfulBaseInterface):
                         else:
                             s_filter = data["filter"]
                     if data["action"] in ("new", "drop", "edit", "replace", "insert"):
-                        if data["action"] == "load":
+                        if data["action"] == "insert":
                            send = None
                         else:
                             try:
