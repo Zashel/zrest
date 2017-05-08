@@ -725,8 +725,8 @@ class ShelveModel(RestfulBaseInterface):
                                 continue
                             else:
                                 break
-                    elif data["action"] == "insert":
-                        self._insert(data["data"], filename_reg)
+                if data["action"] == "insert":
+                    self._insert(data["data"], filename_reg)
                 if self._to_block is True:
                     if data["action"] == "new":
                         s_filter = {"_id": total}
