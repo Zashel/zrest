@@ -17,6 +17,7 @@ PUT = "PUT"
 PATCH = "PATCH"
 DELETE = "DELETE"
 LOAD = "LOAD"
+NEXT = "NEXT"
 ALL = [GET,
        POST,
        PUT,
@@ -88,7 +89,7 @@ class Handler(BaseHTTPRequestHandler):
         response = data["response"]
         if response == 0:
             response = response_default
-        if not data["payload"] and action == GET:
+        if not data["payload"] and action in (GET, NEXT):
             response = 404
         self.send_response(response, get_code(response).text)
         #self.send_header("Content-Type", "application/json; charset=utf-8")
@@ -191,6 +192,15 @@ class Handler(BaseHTTPRequestHandler):
 
         """
         self._prepare(LOAD, 201)
+        return
+
+    def do_NEXT(self):
+        """
+        What to do with a LOAD query. Calls _prepare with a LOAD action. It can be overriden
+        to change behavour.
+
+        """
+        self._prepare(NEXT)
         return
 
 class App:
