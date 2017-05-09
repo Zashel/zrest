@@ -95,7 +95,9 @@ class Handler(BaseHTTPRequestHandler):
         #self.send_header("Content-Type", "application/json; charset=utf-8")
         headers =  self.rest_app.headers.copy()
         headers.update(data["headers"])
-        if self.headers["Content-Type"].startswith("application/json"):
+        if ("Content-Type" in self.headers and
+                self.headers["Content-Type"] is not None and
+                self.headers["Content-Type"].startswith("application/json")):
             for header in headers:
                 self.send_header(header, headers[header])
             self.end_headers()
