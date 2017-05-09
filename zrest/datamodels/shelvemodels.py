@@ -980,7 +980,7 @@ class ShelveBlocking(ShelveModel):
                                                         to_block = True)
         self._blocked_registry = {"unique_id": None,
                                   "master_id": None,
-                                  "timeout": self.timeout()}
+                                  "timeout": datetime.datetime.now()}
         self._blocking_model = ShelveModel(filepath+"-blocking", 1, index_fields=["unique_id",
                                                                                   "master_id"],
                                                                     headers=["unique_id",
