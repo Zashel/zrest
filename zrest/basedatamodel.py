@@ -180,5 +180,16 @@ class RestfulBaseInterface(ModelBaseInterface):
         data = self.insert(self._parse(data), **kwargs)
         return self._return(data)
 
+    def next(self, *, filter, **kwargs):
+        """
+        For NEXT methods
+        :param filter: filter to get
+        :param next: actual item getter
+        :return: Data getted
+
+        """
+        data = self.get_next(self._parse(filter), **kwargs)
+        return self._return(data)
+
     def close(self):
         pass
