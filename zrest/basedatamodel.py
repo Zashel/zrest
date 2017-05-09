@@ -182,6 +182,7 @@ class RestfulBaseInterface(ModelBaseInterface):
 
     def next(self, *, filter, **kwargs):
         """
+
         For NEXT methods
         :param filter: filter to get
         :param next: actual item getter
