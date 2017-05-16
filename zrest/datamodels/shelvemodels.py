@@ -1077,4 +1077,4 @@ class ShelveBlocking(ShelveModel):
 
     def close(self):
         self._blocking_model.close()
-        ShelveModel.close()
+        ShelveModel.close(self)
