@@ -1010,7 +1010,7 @@ class ShelveBlocking(ShelveModel):
             s_filter = filtered["filter"]
             if len(s_filter) == 1:
                 #blocked = self._blocking_model.fetch({"master_id": s_filter[0]})
-                if self.blocked_registry["_id"] == s_filter[0]:
+                if "_id" in self.blocked_registry and self.blocked_registry["_id"] == s_filter[0]:
                     unique_id = self.blocked_registry["unique_id"]
                     if unique_id == self.unique_id:
                         self._blocking_model.replace({"_id": self.blocked_registry["_id"]},
