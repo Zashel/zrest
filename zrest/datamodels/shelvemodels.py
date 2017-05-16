@@ -624,7 +624,7 @@ class ShelveModel(RestfulBaseInterface):
                                 final_order.append(key)
         else:
             final_order = final_set
-        return {"filter": final_order[items_per_page*(page-1):items_per_page*page],
+        return {"filter": final_order[items_per_page*(int(page)-1):items_per_page*int(page)],
                 "total": len(final_order),
                 "page": page,
                 "items_per_page": items_per_page,
