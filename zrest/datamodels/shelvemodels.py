@@ -331,7 +331,7 @@ class ShelveModel(RestfulBaseInterface):
                     index = str(data[field])
                     last = shelf
                     if not index in shelf:
-                        if field != self._unique:
+                        if field != self._unique or self._split_unique == 0:
                             shelf[str(index)] = set()
                         elif self._unique_is_id is False:
                             offset = len(str(index))%self._split_unique
