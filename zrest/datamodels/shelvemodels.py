@@ -1074,3 +1074,7 @@ class ShelveBlocking(ShelveModel):
             except IndexError:
                 self.unblock_registry()
                 return {"Error": 404}
+
+    def close(self):
+        self._blocking_model.close()
+        ShelveModel.close()
