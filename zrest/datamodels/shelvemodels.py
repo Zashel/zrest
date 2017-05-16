@@ -415,6 +415,7 @@ class ShelveModel(RestfulBaseInterface):
              total, next_ = len(self), next(self)
              shelf["total"] = total + len(data)
              shelf["next"] = next_ + len(data)
+             shelf["ids"] = set([int(key) for key in list(data.keys())])
 
     def new(self, data, **kwargs): #TODO: Errors setting new data
         """
