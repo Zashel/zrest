@@ -590,7 +590,10 @@ class ShelveModel(RestfulBaseInterface):
                             if str(filter[field]) in index:
                                 subfilter = index[str(filter[field])]
                         else:
-                            offset = len(str(index))%self._split_unique
+                            if self._split_unique == 0:
+                                offset = 0
+                            else:
+                                offset = len(str(index))%self._split_unique
                             last = index
                             if offset:
                                 inter = str(index)[0:offset]
