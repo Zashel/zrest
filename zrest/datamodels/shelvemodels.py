@@ -568,10 +568,13 @@ class ShelveModel(RestfulBaseInterface):
         if "order" in filter:
             order = filter["order"]
             order = order.split(",")
+            del(filter["order"])
         if "page" in filter:
             page = filter["page"]
+            del(filter["page"])
         if "items_per_page" in filter:
             items_per_page = filter["items_per_page"]
+            del(filter["items_per_page"])
         if "fields" in filter:
             fields = filter["fields"].split(",")
         sub_order = dict()
