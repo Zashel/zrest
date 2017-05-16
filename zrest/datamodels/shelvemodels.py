@@ -722,6 +722,7 @@ class ShelveModel(RestfulBaseInterface):
                                 raise
                             except Exception as e:
                                 print(e)
+                                raise
                                 time.sleep(0.1)
                                 continue
                             else:
