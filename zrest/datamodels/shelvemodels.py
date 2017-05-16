@@ -586,19 +586,16 @@ class ShelveModel(RestfulBaseInterface):
                 if any([os.path.exists(file)
                         for file in glob.glob("{}.*".format(self._index_path(field)))]+[False]):
                     with shelve_open(self._index_path(field), "r") as index:
-                        if self._unique != field:
+                        if self._unique != field or self._split_unique == 0:
                             if str(filter[field]) in index:
                                 subfilter = index[str(filter[field])]
                         else:
-                            if self._split_unique == 0:
-                                offset = 0
-                            else:
-                                offset = len(str(index))%self._split_unique
+                            offset = len(str(index))%self._split_unique
                             last = index
                             if offset:
                                 inter = str(index)[0:offset]
                                 last = last[inter]
-                            for x in range(ceil(len(str(index))/self._unique)):
+                            for x in range(ceil(len(str(index))/self._split_unique)):
                                 inter = str(index)[offset+x*self._split_unique:offset+(x+1)*self._split_unique]
                                 last = last[inter]
                             subfilter = {last}
