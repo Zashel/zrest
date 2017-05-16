@@ -627,8 +627,8 @@ class ShelveModel(RestfulBaseInterface):
             final_order = final_set
         return {"filter": final_order[int(items_per_page)*(int(page)-1):int(items_per_page)*int(page)],
                 "total": len(final_order),
-                "page": page,
-                "items_per_page": items_per_page,
+                "page": int(page),
+                "items_per_page": int(items_per_page),
                 "fields": fields}
 
     def _get_datafile(self, filter):
