@@ -970,14 +970,14 @@ class ShelveBlocking(ShelveModel):
                                                           unique_is_id=False,
                                                           split_unique=0,
                                                           to_block = True):
-        ShelveModel.__init__(self, filepath, groups=10, index_fields=None,
-                                                        headers=None,
-                                                        name=None,
-                                                        items_per_page=50,
-                                                        unique=None,
-                                                        unique_is_id=False,
-                                                        split_unique=0,
-                                                        to_block = True)
+        ShelveModel.__init__(self, filepath, groups=10, index_fields=index_fields,
+                                                        headers=headers,
+                                                        name=name,
+                                                        items_per_page=items_per_page,
+                                                        unique=unique,
+                                                        unique_is_id=unique_is_id,
+                                                        split_unique=split_unique,
+                                                        to_block = to_block)
         self._blocked_registry = {"unique_id": None,
                                   "master_id": None,
                                   "timeout": datetime.datetime.now()}
