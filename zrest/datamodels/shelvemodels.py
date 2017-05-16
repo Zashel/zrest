@@ -568,41 +568,39 @@ class ShelveModel(RestfulBaseInterface):
         if "order" in filter:
             order = filter["order"]
             order = order.split(",")
-            del(filter["order"])
         if "page" in filter:
             page = filter["page"]
-            del(filter["page"])
         if "items_per_page" in filter:
             items_per_page = filter["items_per_page"]
-            del(filter["items_per_page"])
         if "fields" in filter:
             fields = filter["fields"].split(",")
         sub_order = dict()
         final_order = list()
         for field in filter:
-            subfilter = set()
-            if field == "_id" and filter[field] != "":
-                subfilter = {int(filter["_id"])}
-            elif field == "_id" and filter[field] == "":
-                subfilter = final_set
-            else:
-                if any([os.path.exists(file)
-                        for file in glob.glob("{}.*".format(self._index_path(field)))]+[False]):
-                    with shelve_open(self._index_path(field), "r") as index:
-                        if self._unique != field or self._split_unique == 0:
-                            if str(filter[field]) in index:
-                                subfilter = index[str(filter[field])]
-                        else:
-                            offset = len(str(index))%self._split_unique
-                            last = index
-                            if offset:
-                                inter = str(index)[0:offset]
-                                last = last[inter]
-                            for x in range(ceil(len(str(index))/self._split_unique)):
-                                inter = str(index)[offset+x*self._split_unique:offset+(x+1)*self._split_unique]
-                                last = last[inter]
-                            subfilter = {last}
-            final_set &= subfilter
+            if field not in ("page", "items_per_page", "fields"):
+                subfilter = set()
+                if field == "_id" and filter[field] != "":
+                    subfilter = {int(filter["_id"])}
+                elif field == "_id" and filter[field] == "":
+                    subfilter = final_set
+                else:
+                    if any([os.path.exists(file)
+                            for file in glob.glob("{}.*".format(self._index_path(field)))]+[False]):
+                        with shelve_open(self._index_path(field), "r") as index:
+                            if self._unique != field or self._split_unique == 0:
+                                if str(filter[field]) in index:
+                                    subfilter = index[str(filter[field])]
+                            else:
+                                offset = len(str(index))%self._split_unique
+                                last = index
+                                if offset:
+                                    inter = str(index)[0:offset]
+                                    last = last[inter]
+                                for x in range(ceil(len(str(index))/self._split_unique)):
+                                    inter = str(index)[offset+x*self._split_unique:offset+(x+1)*self._split_unique]
+                                    last = last[inter]
+                                subfilter = {last}
+                final_set &= subfilter
         final_set = list(final_set)
         final_set.sort()
         if len(order) > 0:
