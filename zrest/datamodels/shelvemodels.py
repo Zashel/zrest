@@ -296,6 +296,8 @@ class ShelveModel(RestfulBaseInterface):
                 del(final[index])
             except UnboundLocalError:
                 pass
+        if data == list():
+            return {"Error": 404}
         return ({"data": new_final,
                  "total": filtered["total"],
                  "page": filtered["page"],
