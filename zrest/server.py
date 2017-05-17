@@ -486,7 +486,7 @@ class App:
                     else:
                         query = str()
                     #payload["_links"] = {"self": {"href": location+query}}
-                    #payload["_links"] = {"self": {"href": location}}
+                    payload["_links"] = dict()
                     for name, item in (("first", first),
                                        ("last", last),
                                        ("prev", prev),
