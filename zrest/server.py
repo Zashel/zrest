@@ -381,6 +381,7 @@ class App:
                  "payload": str()
                  }
         parsed = self.parse_uri(uri)
+        items_per_page = 50
         if parsed:
             kwargs.update({"filter": parsed["filter"]})
             kwargs["filter"] = json.dumps(kwargs["filter"])
