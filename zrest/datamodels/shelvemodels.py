@@ -83,7 +83,7 @@ class ShelveModel(RestfulBaseInterface):
             with shelve_open(self._meta_path) as shelf:
                 shelf["filepath"] = self._meta_path
                 shelf["total"] = int()
-                shelf["next"] = int()
+                shelf["next"] = 1
                 shelf["groups"] = groups
                 shelf["class"] = self.__class__.__name__
                 shelf["name"] = self._name
