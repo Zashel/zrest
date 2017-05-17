@@ -55,6 +55,8 @@ class ShelveModel(RestfulBaseInterface):
             assert os.path.exists(filepath)
         except AssertionError:
             os.makedirs(filepath)
+        if items_per_page is None:
+            items_per_page = 50
         self.uuid = str(uuid.uuid4())
         self._filepath = filepath
         self._alive = False
