@@ -292,10 +292,6 @@ class ShelveModel(RestfulBaseInterface):
                     else:
                         new_final.append(item)
                         break
-            try:
-                del(final[index])
-            except UnboundLocalError:
-                pass
         if data == list():
             return {"Error": 404}
         return ({"data": new_final,
