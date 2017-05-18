@@ -292,7 +292,7 @@ class ShelveModel(RestfulBaseInterface):
                     else:
                         new_final.append(item)
                         break
-        if data == list():
+        if new_final == list():
             return {"Error": 404}
         return ({"data": new_final,
                  "total": filtered["total"],
