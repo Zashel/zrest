@@ -183,14 +183,14 @@ class App_Test_1(unittest.TestCase):
         req = requests.put("http://localhost:9001/customers/12345678H/invoices/1",
                            json={"fecha": "01/03/2017", "importe": "18.00"})
         print(req.text)
-        req = requests.get("http://localhost:9001/customers/12345678H/invoices")
+        req = requests.get("http://localhost:9001/invoices")
         print(req.text)
 
     def test_4_patch(self):
         req = requests.patch("http://localhost:9001/customers/12345678H/invoices/1",
                              json={"importe": "00.00"})
         print(req.text)
-        req = requests.get("http://localhost:9001/customers/12345678H/invoices")
+        req = requests.get("http://localhost:9001/invoices")
         print(req.text)
 
     def test_5_delete(self):
