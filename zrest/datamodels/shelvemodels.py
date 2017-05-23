@@ -1006,7 +1006,7 @@ class ShelveBlocking(ShelveModel):
     def fetch(self, filter, **kwargs): #Returns error 401 if blocked
         if "unblock" in filter:
             self.unblock_registry(filter)
-            return 404
+            return {"Error": 201}
         else:
             filtered = self._filter(filter)
             s_filter = filtered["filter"]
