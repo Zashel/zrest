@@ -1033,7 +1033,7 @@ class ShelveBlocking(ShelveModel):
         filtered = self._filter(filter)
         s_filter = filtered["filter"]
         for item in s_filter:
-            if item != self.blocked_registry["_id"]:
+            if item != self.blocked_registry["unique_id"]:
                 blocked = self._blocking_model.fetch({"_id": item})
                 if "unique_id" in blocked and blocked["unique_id"] != self.unique_id:
                     continue
