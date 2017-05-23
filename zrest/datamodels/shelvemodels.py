@@ -1048,7 +1048,7 @@ class ShelveBlocking(ShelveModel):
             filter = dict()
         if "_id" in filter:
             master_id = filter["_id"]
-            blocked = self._blocking_model.delete({"unique_id": self.unique_id,
+            blocked = self._blocking_model.drop({"unique_id": self.unique_id,
                                                    "master_id": master_id})
         return {"Error": 204}
 
