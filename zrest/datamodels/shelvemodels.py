@@ -1042,7 +1042,7 @@ class ShelveBlocking(ShelveModel):
                                                         "master_id": item,
                                                         "timeout": self.timeout()})
                     self._blocked_registry = blocked
-                    return ShelveModel.replace(self, {"_id": s_filter[0]})
+                    return ShelveModel.replace(self, {"_id": s_filter[0]}, data)
 
     def unblock_registry(self):
         blocked = self._blocking_model.new({"unique_id": self.unique_id,
