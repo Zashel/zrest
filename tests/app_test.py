@@ -162,6 +162,8 @@ class App_Test_1(unittest.TestCase):
         print("???")
         print(req.headers["Location"])
         print(req.text)
+        req = requests.post("http://localhost:9001/customers",
+                            json={"dni": "11111111J", "nombre": "Nanai"})
 
     def test_01_post(self):
         req = requests.post("http://localhost:9001/invoices",
@@ -183,6 +185,10 @@ class App_Test_1(unittest.TestCase):
                             json={"fecha": "01/02/2017", "importe": "16.30"})
         print(req.headers["Location"]) #Mal
         print(req.text) #Mal
+        req = requests.post("http://localhost:9001/customers/11111111J/invoices",
+                            json={"fecha": "01/02/2017", "importe": "18.30"})
+        print(req.headers["Location"])  # Mal
+        print(req.text)  # Mal
 
     def test_2_get(self):
         req = requests.get("http://localhost:9001/customers/12345678H/invoices")

@@ -17,6 +17,7 @@ from zashel.utils import threadize
 from zrest.basedatamodel import *
 from zrest.exceptions import *
 from math import ceil
+import json
 
 
 class ShelveModel(RestfulBaseInterface):
@@ -828,17 +829,18 @@ class ShelveForeign(RestfulBaseInterface):
     def alias(self):
         return self._alias
 
-
     def _filter(self, filter):
         foreign_filter = dict()
         child_filter = dict()
         foreign_name = self.foreign.name+"_"
         child_name = self.child.name+"_"
+        if type(filter) == str:
+            filter = json.loads(filter)
         for field in filter:
-            for name, sub_filter in ((foreign_name, foreign_filter),
-                                 (child_name, child_filter)):
-                if field.startswith(name) is True:
-                    sub_filter[field[len(name):]] = filter[field]
+            if field.startswith(foreign_name) is True:
+                foreign_filter[field[len(foreign_name):]] = filter[field]
+            elif field.startswith(child_name) is True:
+                child_filter[field[len(child_name):]] = filter[field]
         if self.field in child_filter:
             foreign_filter["_id"] = child_filter[self.field]
         return {"foreign": foreign_filter,
@@ -881,6 +883,7 @@ class ShelveForeign(RestfulBaseInterface):
         """
         filter = self._filter(filter)
         foreign_data = self.foreign.fetch(filter["foreign"])
+        print(foreign_data)
         for item in foreign_data["data"][0]:
             if "_id" == item:
                 data.update({self._child_field: foreign_data["data"][0]["_id"]})
