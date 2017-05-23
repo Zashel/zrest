@@ -1054,7 +1054,7 @@ class ShelveBlocking(ShelveModel):
 
     def clean_timeouts(self, page=1):
         all = self._blocking_model.fetch({"page": page})
-        for item in all["data"]:2
+        for item in all["data"]:
             self._blocking_model.drop(item)
         if "total" in all and all["total"] > all["items_per_page"]*all["page"]:
             self.clean_timeouts(all["page"]+1)
