@@ -427,7 +427,7 @@ class App:
                     for embedded in payload["_embedded"]:
                         if "data" not in payload["_embedded"][embedded]:
                             keys = list(payload["_embedded"][embedded].keys())
-                            payload["_embedded"][embedded]["data"] = [payload["_embedded"][embedded]]
+                            payload["_embedded"][embedded]["data"] = [dict(payload["_embedded"][embedded])]
                             for key in keys:
                                 del(payload["_embedded"][embedded][key])
                         for item in payload["_embedded"][embedded]["data"]:

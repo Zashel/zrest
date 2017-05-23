@@ -168,6 +168,15 @@ class App_Test_1(unittest.TestCase):
                             json={"cliente":0, "fecha": "01/01/2017", "importe": "10.25"})
         print(req.headers["Location"])
         print(req.text)
+        req = requests.post("http://localhost:9001/invoices",
+                            json={"cliente": 0, "fecha": "01/01/2017", "importe": "20.55"})
+        print(req.headers["Location"])
+        print(req.text)
+        req = requests.patch("http://localhost:9001/invoices/1",
+                            json={"cliente": 0, "fecha": "01/01/2017", "importe": "10.55"})
+        print("HERE ", req.text)
+        req = requests.get("http://localhost:9001/invoices")
+        print("AND HERE ", req.text)
 
     def test_1_post_foreign(self):
         req = requests.post("http://localhost:9001/customers/12345678H/invoices",
