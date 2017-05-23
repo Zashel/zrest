@@ -425,6 +425,11 @@ class App:
                         del(payload[item])
                 if "_embedded" in payload:
                     for embedded in payload["_embedded"]:
+                        if "data" not in payload["_embedded"][embedded]:
+                            keys = list(payload["_embedded"][embedded].keys())
+                            payload["_embedded"][embedded]["data"] = payload["_embedded"][embedded]
+                            for key in keys:
+                                del(payload["_embedded"][embedded][key])
                         for item in payload["_embedded"][embedded]["data"]:
                             links = dict()
                             uris = self._simple_uri_by_name[embedded]
