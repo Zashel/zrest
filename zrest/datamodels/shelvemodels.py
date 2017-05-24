@@ -837,9 +837,9 @@ class ShelveForeign(RestfulBaseInterface):
         if type(filter) == str:
             filter = json.loads(filter)
         for field in filter:
-            if field.startswith(foreign_name) is True:
+            if field.startswith(foreign_name) is True and filter[field] != "":
                 foreign_filter[field[len(foreign_name):]] = filter[field]
-            elif field.startswith(child_name) is True:
+            elif field.startswith(child_name) is True and filter[field] != "":
                 child_filter[field[len(child_name):]] = filter[field]
         if self.field in child_filter:
             foreign_filter["_id"] = child_filter[self.field]
@@ -863,16 +863,20 @@ class ShelveForeign(RestfulBaseInterface):
         """
         filter = self._filter(filter)
         foreign_data = self.foreign.fetch(filter["foreign"])
+        print("filter", filter)
+        print("foreign_filter ", filter["foreign"])
+        if type(foreign_data) == str:
+            foreign_data = json.loads(foreign_data)
         if "data" in foreign_data:
             f_data = foreign_data["data"][0]
         else:
             f_data = foreign_data
-        for data in f_data:
-            if "_id" in data:
-                child_filter = filter["child"].copy()
-                child_filter.update({self.field: data["_id"]})
-                child_data = self.child.fetch(child_filter)
-                data[self.child.name] = child_data
+        if "_id" in f_data:
+            child_filter = filter["child"].copy()
+            child_filter.update({self.field: f_data["_id"]})
+            print("child_filter ", child_filter)
+            child_data = self.child.fetch(child_filter)
+            f_data[self.child.name] = child_data
         return foreign_data
 
     def new(self, data, *, filter, **kwargs): #Redo
@@ -885,19 +889,21 @@ class ShelveForeign(RestfulBaseInterface):
         :return: foreign data with all children asociated
 
         """
-        filter = self._filter(filter)
-        foreign_data = self.foreign.fetch(filter["foreign"])
-        print(foreign_data)
+        s_filter = self._filter(filter)
+        print("foreign_filter ", s_filter["foreign"])
+        foreign_data = self.foreign.fetch(s_filter["foreign"])
+        if type(foreign_data) == str:
+            foreign_data = json.loads(foreign_data)
         if "data" in foreign_data:
             f_data = foreign_data["data"][0]
         else:
             f_data = foreign_data
-        for item in f_data:
-            if "_id" == item:
-                data.update({self._child_field: f_data["_id"]})
+        print("foreign ", f_data)
+        if "_id" in f_data:
+            data.update({self._child_field: f_data["_id"]})
         if self._child_field in data:
             foreign_data[self.child.name] = self.child.new(data)
-        return foreign_data
+        return self.fetch(filter)
 
     def drop(self, filter, **kwargs):
         """
@@ -932,7 +938,7 @@ class ShelveForeign(RestfulBaseInterface):
             if self.child.name in foreign:
                 for children in foreign[self.child.name]:
                     children.update(data)
-                    self.child.replace({"_id":children["_id"]}, children)
+                    self.child.replace({"_id": children["_id"]}, children)
         return self.fetch(filter)
 
     def edit(self, filter, data, **kwargs):

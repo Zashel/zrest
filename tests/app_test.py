@@ -167,15 +167,15 @@ class App_Test_1(unittest.TestCase):
 
     def test_01_post(self):
         req = requests.post("http://localhost:9001/invoices",
-                            json={"cliente":0, "fecha": "01/01/2017", "importe": "10.25"})
+                            json={"cliente":1, "fecha": "01/01/2017", "importe": "10.25"})
         print(req.headers["Location"])
         print(req.text)
         req = requests.post("http://localhost:9001/invoices",
-                            json={"cliente": 0, "fecha": "01/01/2017", "importe": "20.55"})
+                            json={"cliente": 1, "fecha": "01/01/2017", "importe": "20.55"})
         print(req.headers["Location"])
         print(req.text)
         req = requests.patch("http://localhost:9001/invoices/1",
-                            json={"cliente": 0, "fecha": "01/01/2017", "importe": "10.55"})
+                            json={"cliente": 1, "fecha": "01/01/2017", "importe": "10.55"})
         print("HERE ", req.text)
         req = requests.get("http://localhost:9001/invoices")
         print("AND HERE ", req.text)
@@ -189,6 +189,9 @@ class App_Test_1(unittest.TestCase):
                             json={"fecha": "01/02/2017", "importe": "18.30"})
         print(req.headers["Location"])  # Mal
         print(req.text)  # Mal
+
+        req = requests.get("http://localhost:9001/customers/11111111J/invoices")
+        print("SO HERE ", req.text)
 
     def test_2_get(self):
         req = requests.get("http://localhost:9001/customers/12345678H/invoices")
