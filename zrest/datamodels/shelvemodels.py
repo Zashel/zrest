@@ -1094,9 +1094,10 @@ class ShelveBlocking(ShelveModel):
             item = None
         filtered = self._filter(filter)["filter"]
         print(filtered)
-        if item is None:
+        if item is None or item not in filtered:
             index = -1
         else:
+            item = int(item)
             index = filtered.index(item)
         try:
             index = filtered[index+1]
