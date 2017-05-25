@@ -1093,6 +1093,7 @@ class ShelveBlocking(ShelveModel):
         else:
             item = None
         filtered = self._filter(filter)["filter"]
+        print(filtered)
         if item is None:
             index = -1
         else:
