@@ -1089,7 +1089,7 @@ class ShelveBlocking(ShelveModel):
     def get_next(self, filter, **kwargs):
         if "_item" in filter:
             item = filter["_item"]
-            del(filter["item"])
+            del(filter["_item"])
         else:
             item = None
         filtered = self._filter(filter)["filter"]
