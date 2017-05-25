@@ -1088,7 +1088,6 @@ class ShelveBlocking(ShelveModel):
 
     def get_next(self, filter, **kwargs):
         filtered = self._filter(filter)
-        s_filter = filtered["filter"]
         if "_item" in filter:
             item = filter["_item"]
         else:
@@ -1096,9 +1095,9 @@ class ShelveBlocking(ShelveModel):
         if item is None:
             index = -1
         else:
-            index = s_filter.index(item)
+            index = filtered.index(item)
         try:
-            index = s_filter[index+1]
+            index = filtered[index+1]
             data = self.fetch({"_id": index})
             if "Error" in data and data["Error"] == 401:
                 filter["_item"] = index
