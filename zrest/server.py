@@ -392,6 +392,8 @@ class App:
                  "payload": str()
                  }
         parsed = self.parse_uri(uri)
+        if verb == NEXT and "_item" in parsed["filter"]:
+            del(parsed["filter"]["_item"])
         items_per_page = 50
         if parsed:
             kwargs.update({"filter": parsed["filter"]})
