@@ -872,15 +872,21 @@ class ShelveForeign(RestfulBaseInterface):
         if type(foreign_data) == str:
             foreign_data = json.loads(foreign_data)
         if "data" in foreign_data:
-            f_data = foreign_data["data"][0]
+            f_data = foreign_data["data"]
+        elif type(foreign_data) == list:
+            f_data = [foreign_data]
         else:
             f_data = foreign_data
-        if "_id" in f_data:
-            child_filter = filter["child"].copy()
-            child_filter.update({self.field: f_data["_id"]})
-            print("child_filter ", child_filter)
-            child_data = self.child.fetch(child_filter)
-            f_data[self.child.name] = child_data
+        for item in f_data:
+            if "_id" in item:
+                child_filter = filter["child"].copy()
+                child_filter.update({self.field: item["_id"]})
+                print("child_filter ", child_filter)
+                child_data = self.child.fetch(child_filter)
+                print("child_data ", child_data)
+                if "_embedded" not in item:
+                    item["_embedded"] = dict()
+                item["_embedded"].update({self.child.name: child_data})
         return foreign_data
 
     def new(self, data, *, filter, **kwargs): #Redo

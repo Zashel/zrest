@@ -227,6 +227,10 @@ class App_Test_1(unittest.TestCase):
         req = requests.get("http://localhost:9001/customers")
         print(req.text)
 
+    def test_9_get_all(self):
+        req = requests.get("http://localhost:9001/customers//invoices")
+        print(req.text)
+
 
 if __name__ == "__main__":
     unittest.main()

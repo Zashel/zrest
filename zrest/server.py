@@ -434,40 +434,56 @@ class App:
                             payload["_embedded"] = dict()
                         payload["_embedded"][item] = payload[item]
                         del(payload[item])
-                if "_embedded" in payload:
-                    for embedded in payload["_embedded"]:
-                        if "data" not in payload["_embedded"][embedded]:
-                            keys = list(payload["_embedded"][embedded].keys())
-                            payload["_embedded"][embedded]["data"] = [dict(payload["_embedded"][embedded])]
-                            for key in keys:
-                                del(payload["_embedded"][embedded][key])
-                        for item in payload["_embedded"][embedded]["data"]:
-                            links = dict()
-                            uris = self._simple_uri_by_name[embedded]
-                            for uri in uris:
-                                s_params = self._params_searcher.findall(uri)
-                                for param in s_params:
-                                    if param.startswith("<"+embedded+"_"):
-                                        s_param = "<"+param[len("<"+embedded+"_"):]
-                                    else:
-                                        s_param = param
-                                    if s_param in uri and s_param in item:
-                                        uri = uri.replace("<"+param+">", str(item[s_param]))
-                                        links["self"] = {"href": uri.strip("^").strip("$")}
-                                        item["_links"] = links
-                        if ("total" in payload["_embedded"][embedded] and
-                                "page" in payload["_embedded"][embedded] and
-                                "items_per_page" in payload["_embedded"][embedded]):
-                            total = payload["_embedded"][embedded]["total"]
-                            page = payload["_embedded"][embedded]["page"]
-                            items_per_page = payload["_embedded"][embedded]["items_per_page"]
-                            if total > items_per_page:
-                                pages = ceil(total/items_per_page)
-                                next = page+1
-                                prev = page-1
-                                first = 1
-                                last = pages
-                            payload["_embedded"][embedded] = payload["_embedded"][embedded]["data"]
+                def get_payload(payload):
+                    page = 1
+                    next = 1
+                    prev = 1
+                    last = 1
+                    first = 1
+                    total = 1
+                    pages = 1
+                    if "_embedded" in payload:
+                        for embedded in payload["_embedded"]:
+                            if "data" not in payload["_embedded"][embedded]:
+                                keys = list(payload["_embedded"][embedded].keys())
+                                payload["_embedded"][embedded]["data"] = [dict(payload["_embedded"][embedded])]
+                                for key in keys:
+                                    del(payload["_embedded"][embedded][key])
+                            for item in payload["_embedded"][embedded]["data"]:
+                                links = dict()
+                                if "/" in embedded:
+                                    subembedded = embedded.split("/")[0]
+                                else:
+                                    subembedded = embedded
+                                uris = self._simple_uri_by_name[subembedded]
+                                for uri in uris:
+                                    s_params = self._params_searcher.findall(uri)
+                                    for param in s_params:
+                                        if param.startswith("<"+subembedded+"_"):
+                                            s_param = "<"+param[len("<"+subembedded+"_"):]
+                                        else:
+                                            s_param = param
+                                        if s_param in uri and s_param in item:
+                                            uri = uri.replace("<"+param+">", str(item[s_param]))
+                                            links["self"] = {"href": uri.strip("^").strip("$")}
+                                            item["_links"] = links
+                                if "_embedded" in item:
+                                    item.update(get_payload(item)[0])
+                            if ("total" in payload["_embedded"][embedded] and
+                                    "page" in payload["_embedded"][embedded] and
+                                    "items_per_page" in payload["_embedded"][embedded]):
+                                total = payload["_embedded"][embedded]["total"]
+                                page = payload["_embedded"][embedded]["page"]
+                                items_per_page = payload["_embedded"][embedded]["items_per_page"]
+                                if total > items_per_page:
+                                    pages = ceil(total/items_per_page)
+                                    next = page+1
+                                    prev = page-1
+                                    first = 1
+                                    last = pages
+                                payload["_embedded"][embedded] = payload["_embedded"][embedded]["data"]
+                    return (payload, pages, next, prev, first, last)
+                payload, pages, next, prev, first, last = get_payload(payload)
                 #if verb == POST:
                 #if isinstance(payload, list): #To be changed with HAL HATEOAS
                 #    payload = payload[0]
@@ -492,7 +508,7 @@ class App:
                     if s_param in pl and pl[s_param] is not None:
                         location = location.replace(param, str(pl[s_param]))
                     else:
-                        location = location.replace("/"+param, "")
+                        location = location.replace(param, "")
                 if isinstance(payload, dict):
                     new_filter = json.loads(kwargs["filter"])
                     for param in parsed["params"]:
