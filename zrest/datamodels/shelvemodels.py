@@ -642,6 +642,10 @@ class ShelveModel(RestfulBaseInterface):
             filename_reg[filename] |= {reg}
         return filename_reg
 
+    def get_count(self, filter, **kwargs):
+        filter = self._filter(filter)
+        return({"count": filter["total"]})
+
     @threadize
     def _writer(self):
         """

@@ -18,12 +18,14 @@ PATCH = "PATCH"
 DELETE = "DELETE"
 LOAD = "LOAD"
 NEXT = "NEXT"
+COUNT = "COUNT"
 ALL = [GET,
        POST,
        PUT,
        PATCH,
        DELETE,
-       LOAD]
+       LOAD,
+       COUNT]
 
 def not_implemented(*args, **kwargs):
     """
@@ -205,6 +207,15 @@ class Handler(BaseHTTPRequestHandler):
 
         """
         self._prepare(NEXT)
+        return
+
+    def do_COUNT(self):
+        """
+        What to do with a LOAD query. Calls _prepare with a LOAD action. It can be overriden
+        to change behavour.
+
+        """
+        self._prepare(COUNT)
         return
 
 class App:

@@ -71,6 +71,24 @@ class ModelBaseInterface:
 
         """
 
+    def get_next(self, filter, **kwargs):
+        """
+        Returns next data
+        :param filter:  Filter to apply
+        :return: statuscode
+        :raises: DataModelDropError
+
+        """
+
+    def get_count(self, filter, **kwargs):
+        """
+        Returns next data
+        :param filter:  Filter to apply
+        :return: statuscode
+        :raises: DataModelDropError
+
+        """
+
 class RestfulBaseInterface(ModelBaseInterface):
     """
     Base interface for restful models.
@@ -190,6 +208,17 @@ class RestfulBaseInterface(ModelBaseInterface):
 
         """
         data = self.get_next(self._parse(filter), **kwargs)
+        return self._return(data)
+
+    def count(self, *, filter, **kwargs):
+        """
+
+        For COUNT methods
+        :param filter: filter to get the count
+        :return: Data getted
+
+        """
+        data = self.get_count(self._parse(filter), **kwargs)
         return self._return(data)
 
     def close(self):
