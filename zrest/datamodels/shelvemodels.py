@@ -350,7 +350,7 @@ class ShelveModel(RestfulBaseInterface):
                     if field != self._unique:
                         shelf[str(index)] |= {registry}
                     else:
-                        last = registry
+                        shelf[str(index)] = {registry}
                     
     def _del_index(self, data, registry):
         for field in data:
