@@ -1087,6 +1087,7 @@ class ShelveBlocking(ShelveModel):
             self.clean_timeouts(all["page"]+1)
 
     def get_next(self, filter, **kwargs):
+        print(filter)
         if "_item" in filter:
             item = filter["_item"]
             del(filter["_item"])
