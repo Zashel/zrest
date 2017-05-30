@@ -555,9 +555,16 @@ class ShelveModel(RestfulBaseInterface):
                             file["ids"] = ids
 
     def _filter(self, filter):
-        with shelve_open(self._meta_path) as shelf:
-            ids = list(shelf["ids"])
-            final_set = set([int(id) for id in ids])
+        while True:
+            try:
+                with shelve_open(self._meta_path) as shelf:
+                    ids = list(shelf["ids"])
+                    final_set = set([int(id) for id in ids])
+            except KeyError:
+                time.sleep(1)
+                continue
+            else:
+                break
         #final_set = set(range(0, next(self)))
         order = str()
         fields = list()
