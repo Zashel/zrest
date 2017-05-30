@@ -689,7 +689,8 @@ class ShelveModel(RestfulBaseInterface):
                     if data["action"] != "insert":
                         while True:
                             try:
-                                if self._to_block is False or self.is_blocked(self._meta_path) is False:
+                                if (data["action"] != "fetch" and
+                                        (self._to_block is False or self.is_blocked(self._meta_path) is False)):
                                     self.__getattribute__("_{}".format(data["action"]))(data["data"],
                                                                                         filename_reg[filename],
                                                                                         filename)
