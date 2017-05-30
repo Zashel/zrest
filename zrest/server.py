@@ -157,7 +157,7 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 self._prepare(GET)
             except (KeyboardInterrupt, SystemExit):
-                break
+                raise
             except:
                 continue
             else:
@@ -219,7 +219,7 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 self._prepare(NEXT)
             except (KeyboardInterrupt, SystemExit):
-                break
+                raise
             except:
                 continue
             else:
