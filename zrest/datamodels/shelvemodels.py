@@ -632,10 +632,13 @@ class ShelveModel(RestfulBaseInterface):
 
     def direct_fetch(self, filter, filtered=None, **kwargs):
         final = list()
+        filtered = self._filter(filter)
+        filter = filtered["filter"]
+        filter = self._get_datafile(filter)
         if filtered is None:
             filtered = self._filter(filter)
         for filename in filter:
-            final.extend(self._fetch(filter[filename], filename))
+            final.extend(self._fetch(filter[filename], filename))#Filter
         new_final = list()
         for _id in filtered["filter"]:
             for index, item in enumerate(final):
@@ -678,7 +681,7 @@ class ShelveModel(RestfulBaseInterface):
                 if self._to_block is True:
                     self._wait_to_block(self._meta_path)
                     self._keep_alive(self._meta_path)
-                if "filter" in data and data["action"] not in ("new",):
+                if "filter" in data and data["action"] not in ("new", "fetch"):
                     filter = data["filter"]
                     filtered = self._filter(filter)
                     filter = filtered["filter"]
@@ -759,7 +762,7 @@ class ShelveModel(RestfulBaseInterface):
                         if data["action"] == "insert":
                            send = None
                         elif data["action"] == "fetch":
-                            send =  self.direct_fetch(filter, filtered)
+                            send =  self.direct_fetch(s_filter)
                         else:
                             try:
                                 fetched = self.direct_fetch(s_filter)
