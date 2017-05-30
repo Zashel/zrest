@@ -1,5 +1,6 @@
 from zrest.statuscodes import *
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from socketserver import ThreadingMixIn
 from .basedatamodel import RestfulBaseInterface
 from .statuscodes import *
 from zashel.utils import threadize, daemonize
@@ -549,7 +550,9 @@ class App:
         self._key, self._cert = key, cert
 
     def run(self, addr, port):
-        self._server = HTTPServer((addr, port), self._handler)
+        class Server(ThreadingMixIn, HTTPServer):
+            pass
+        self._server = Server((addr, port), self._handler)
         if self._key is not None and self._cert is not None:
             ssl.wrap_socket(self._server.socket, self._key, self._cert)
         self._server.serve_forever()
