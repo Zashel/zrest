@@ -736,6 +736,7 @@ class ShelveModel(RestfulBaseInterface):
                                                            [False]):
                                                 self._wait_to_block(self._index_path(field))
                                                 self._keep_alive(self._index_path(field))
+                                    print("koko?")
                                     continue
                             except (KeyboardInterrupt, SystemExit):
                                 raise
