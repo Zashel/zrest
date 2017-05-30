@@ -630,6 +630,34 @@ class ShelveModel(RestfulBaseInterface):
         filter = self._filter(filter)
         return({"count": filter["total"]})
 
+    def direct_fetch(self, filter, filtered=None, **kwargs):
+        final = list()
+        if filtered is None:
+            filtered = self._filter(filter)
+        for filename in filter:
+            final.extend(self._fetch(filter[filename], filename))
+        new_final = list()
+        for _id in filtered["filter"]:
+            for index, item in enumerate(final):
+                if "_id" in item and item["_id"] == _id:
+                    if filtered["fields"]:
+                        new = dict()
+                        for field in item:
+                            if field == "_id" or field in filtered["fields"]:
+                                new[field] = item[field]
+                        new_final.append(new)
+                        break
+                    else:
+                        new_final.append(item)
+                        break
+        if new_final == list():
+            return {"Error": 404}
+        else:
+            return ({"data": new_final,
+                     "total": filtered["total"],
+                     "page": filtered["page"],
+                     "items_per_page": filtered["items_per_page"]})
+
     @threadize
     def _writer(self):
         """
@@ -730,33 +758,10 @@ class ShelveModel(RestfulBaseInterface):
                         if data["action"] == "insert":
                            send = None
                         elif data["action"] == "fetch":
-                            final = list()
-                            for filename in filter:
-                                final.extend(self._fetch(filter[filename], filename))
-                            new_final = list()
-                            for _id in filtered["filter"]:
-                                for index, item in enumerate(final):
-                                    if "_id" in item and item["_id"] == _id:
-                                        if filtered["fields"]:
-                                            new = dict()
-                                            for field in item:
-                                                if field == "_id" or field in filtered["fields"]:
-                                                    new[field] = item[field]
-                                            new_final.append(new)
-                                            break
-                                        else:
-                                            new_final.append(item)
-                                            break
-                            if new_final == list():
-                                send = {"Error": 404}
-                            else:
-                                send =  ({"data": new_final,
-                                          "total": filtered["total"],
-                                          "page": filtered["page"],
-                                          "items_per_page": filtered["items_per_page"]})
+                            send =  self.direct_fetch(filter, filtered)
                         else:
                             try:
-                                fetched = self.fetch(s_filter)
+                                fetched = self.direct_fetch(s_filter)
                                 send = fetched
                                 """After an edit or a replace filter may change...
                                    Is it a bug?"""
