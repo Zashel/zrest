@@ -153,7 +153,15 @@ class Handler(BaseHTTPRequestHandler):
         overriden to change behavour.
 
         """
-        self._prepare(GET)
+        while True:
+            try:
+                self._prepare(GET)
+            except (KeyboardInterrupt, SystemExit):
+                break
+            except:
+                continue
+            else:
+                break
         return
 
     def do_POST(self):
@@ -207,7 +215,15 @@ class Handler(BaseHTTPRequestHandler):
         to change behavour.
 
         """
-        self._prepare(NEXT)
+        while True:
+            try:
+                self._prepare(NEXT)
+            except (KeyboardInterrupt, SystemExit):
+                break
+            except:
+                continue
+            else:
+                break
         return
 
     def do_COUNT(self):
