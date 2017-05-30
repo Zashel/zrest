@@ -273,32 +273,9 @@ class ShelveModel(RestfulBaseInterface):
         :returns: dictionary with result of the query
 
         """
-        filtered = self._filter(filter)
-        filter = filtered["filter"]
-        filter = self._get_datafile(filter)
-        final = list()
-        for filename in filter:
-            final.extend(self._fetch(filter[filename], filename))
-        new_final = list()
-        for _id in filtered["filter"]:
-            for index, item in enumerate(final):
-                if "_id" in item and item["_id"]==_id:
-                    if filtered["fields"]:
-                        new = dict()
-                        for field in item:
-                            if field=="_id" or field in filtered["fields"]:
-                                new[field] = item[field]
-                        new_final.append(new)
-                        break
-                    else:
-                        new_final.append(item)
-                        break
-        if new_final == list():
-            return {"Error": 404}
-        return ({"data": new_final,
-                 "total": filtered["total"],
-                 "page": filtered["page"],
-                 "items_per_page": filtered["items_per_page"]})
+        conn_in, conn_out = Pipe(False)
+        self._send_pipe(action="fetch", filter=filter, data={}, pipe=conn_out)
+        return conn_in.recv()
 
     def _fetch(self, registries, shelf):
         if isinstance(registries, int):
@@ -748,9 +725,34 @@ class ShelveModel(RestfulBaseInterface):
                             s_filter = {"_id": total}
                         else:
                             s_filter = data["filter"]
-                    if data["action"] in ("new", "drop", "edit", "replace", "insert"):
+                    if data["action"] in ("new", "drop", "edit", "replace", "insert", "fetch"):
                         if data["action"] == "insert":
                            send = None
+                        elif data["action"] == "fetch":
+                            final = list()
+                            for filename in filter:
+                                final.extend(self._fetch(filter[filename], filename))
+                            new_final = list()
+                            for _id in filtered["filter"]:
+                                for index, item in enumerate(final):
+                                    if "_id" in item and item["_id"] == _id:
+                                        if filtered["fields"]:
+                                            new = dict()
+                                            for field in item:
+                                                if field == "_id" or field in filtered["fields"]:
+                                                    new[field] = item[field]
+                                            new_final.append(new)
+                                            break
+                                        else:
+                                            new_final.append(item)
+                                            break
+                            if new_final == list():
+                                send = {"Error": 404}
+                            else:
+                                send =  ({"data": new_final,
+                                          "total": filtered["total"],
+                                          "page": filtered["page"],
+                                          "items_per_page": filtered["items_per_page"]})
                         else:
                             try:
                                 fetched = self.fetch(s_filter)
