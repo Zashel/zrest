@@ -6,6 +6,7 @@ import time
 import uuid
 import glob
 import sys
+import random
 
 if sys.version_info.minor == 3:
     from contextlib import closing
@@ -537,8 +538,8 @@ class ShelveModel(RestfulBaseInterface):
                 with shelve_open(self._meta_path) as shelf:
                     ids = list(shelf["ids"])
                     final_set = set([int(id) for id in ids])
-            except KeyError:
-                time.sleep(1)
+            except (KeyError, PermissionError):
+                time.sleep(random.randint(0, 2)+random.randint(0, 1000)/1000)
                 continue
             else:
                 break
