@@ -552,7 +552,7 @@ class App:
     def run(self, addr, port):
         class Server(ThreadingMixIn, HTTPServer):
             pass
-        self._server = Server((addr, port), self._handler)
+        self._server = HTTPServer((addr, port), self._handler)
         if self._key is not None and self._cert is not None:
             ssl.wrap_socket(self._server.socket, self._key, self._cert)
         self._server.serve_forever()
