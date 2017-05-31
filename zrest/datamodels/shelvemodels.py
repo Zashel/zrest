@@ -739,7 +739,6 @@ class ShelveModel(RestfulBaseInterface):
                                                            [False]):
                                                 self._wait_to_block(self._index_path(field))
                                                 self._keep_alive(self._index_path(field))
-                                    print("koko?")
                                     #continue
                             except (KeyboardInterrupt, SystemExit):
                                 raise
@@ -886,8 +885,6 @@ class ShelveForeign(RestfulBaseInterface):
         """
         filter = self._filter(filter)
         foreign_data = self.foreign.fetch(filter["foreign"])
-        print("filter", filter)
-        print("foreign_filter ", filter["foreign"])
         if type(foreign_data) == str:
             foreign_data = json.loads(foreign_data)
         if "data" in foreign_data:
@@ -900,9 +897,7 @@ class ShelveForeign(RestfulBaseInterface):
             if "_id" in item:
                 child_filter = filter["child"].copy()
                 child_filter.update({self.field: item["_id"]})
-                print("child_filter ", child_filter)
                 child_data = self.child.fetch(child_filter)
-                print("child_data ", child_data)
                 if "_embedded" not in item:
                     item["_embedded"] = dict()
                 item["_embedded"].update({self.child.name: child_data})
@@ -919,7 +914,6 @@ class ShelveForeign(RestfulBaseInterface):
 
         """
         s_filter = self._filter(filter)
-        print("foreign_filter ", s_filter["foreign"])
         foreign_data = self.foreign.fetch(s_filter["foreign"])
         if type(foreign_data) == str:
             foreign_data = json.loads(foreign_data)
@@ -927,7 +921,6 @@ class ShelveForeign(RestfulBaseInterface):
             f_data = foreign_data["data"][0]
         else:
             f_data = foreign_data
-        print("foreign ", f_data)
         if "_id" in f_data:
             data.update({self._child_field: f_data["_id"]})
         if self._child_field in data:
@@ -1106,15 +1099,12 @@ class ShelveBlocking(ShelveModel):
             self.clean_timeouts(all["page"]+1)
 
     def get_next(self, filter, **kwargs):
-        print(filter)
         if "_item" in filter:
             item = filter["_item"]
             del(filter["_item"])
         else:
             item = None
         filtered = self._filter(filter)["filter"]
-        print(filtered)
-        print(item)
         if item is None or int(item) not in filtered:
             index = -1
         else:

@@ -142,7 +142,7 @@ class App_Test_1(unittest.TestCase):
                           "^/invoices/<_id>$", )
         cls.app.set_model(ShelveForeign(cls.app._models["customers"],
                                         cls.app._models["invoices"],
-                                        "2"),
+                                        "cliente"),
                           "customers/invoices",
                           "^/customers/<customers_dni>/invoices/<invoices__id>$")
         cls.app.run_thread("127.0.0.1", 9001)
