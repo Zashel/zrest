@@ -886,7 +886,7 @@ class ShelveForeign(RestfulBaseInterface):
 
         """
         filter = self._filter(filter)
-        foreign_data = self.foreign.fetch(filter["foreign"])
+        foreign_data = self.foreign.direct_fetch(filter["foreign"])
         if type(foreign_data) == str:
             foreign_data = json.loads(foreign_data)
         if "data" in foreign_data:
@@ -899,7 +899,7 @@ class ShelveForeign(RestfulBaseInterface):
             if "_id" in item:
                 child_filter = filter["child"].copy()
                 child_filter.update({self.field: item["_id"]})
-                child_data = self.child.fetch(child_filter)
+                child_data = self.child.direct_fetch(child_filter)
                 if "_embedded" not in item:
                     item["_embedded"] = dict()
                 item["_embedded"].update({self.child.name: child_data})
@@ -916,7 +916,7 @@ class ShelveForeign(RestfulBaseInterface):
 
         """
         s_filter = self._filter(filter)
-        foreign_data = self.foreign.fetch(s_filter["foreign"])
+        foreign_data = self.foreign.direct_fetch(s_filter["foreign"])
         if type(foreign_data) == str:
             foreign_data = json.loads(foreign_data)
         if "data" in foreign_data:
@@ -939,7 +939,7 @@ class ShelveForeign(RestfulBaseInterface):
 
         """
         filter = self._filter(filter)
-        foreign_data = self.foreign.fetch(filter["foreign"])
+        foreign_data = self.foreign.direct_fetch(filter["foreign"])
         child_filter = filter["child"]
         for item in foreign_data:
             if "_id" in item:
@@ -987,7 +987,7 @@ class ShelveRelational(ShelveModel):
         self._relations = dict(zip([rel.name for rel in relations], [rel for rel in relations]))
 
     def fetch(self, filter, **kwargs):
-        data = super().fetch(filter, **kwargs)
+        data = super().direct_fetch(filter, **kwargs)
         for item in data["data"]:
             for field in item:
                 for name in self._relations:
@@ -1052,13 +1052,13 @@ class ShelveBlocking(ShelveModel):
             filtered = self._filter(filter)
             s_filter = filtered["filter"]
             if len(s_filter) == 1:
-                blocked = self._blocking_model.fetch({"master_id": s_filter[0]})
+                blocked = self._blocking_model.direct_fetch({"master_id": s_filter[0]})
                 if "master_id" in blocked and blocked == s_filter[0]:
                     unique_id = self.blocked_registry["unique_id"]
                     if unique_id == self.unique_id:
                         self._blocking_model.replace({"master_id": blocked["master_id"]},
                                                      {"timeout": self.timeout()})
-                        return ShelveModel.fetch(filter, **kwargs)
+                        return ShelveModel.direct_fetch(filter, **kwargs)
                     else:
                         return {"Error": 401}
                 else:
@@ -1066,9 +1066,9 @@ class ShelveBlocking(ShelveModel):
                                                         "master_id": s_filter[0],
                                                         "timeout": self.timeout()})
                     #self._blocked_registry = blocked["data"][0]
-                    return ShelveModel.fetch(self, {"_id": s_filter[0]})
+                    return ShelveModel.direct_fetch(self, {"_id": s_filter[0]})
             else:
-                return ShelveModel.fetch(self, filter, **kwargs)
+                return ShelveModel.direct_fetch(self, filter, **kwargs)
 
     def replace(self, filter, data, **kwargs):
         filtered = self._filter(filter)
@@ -1114,7 +1114,7 @@ class ShelveBlocking(ShelveModel):
             index = filtered.index(item)
         try:
             index = filtered[index+1]
-            data = self.fetch({"_id": index})
+            data = self.direct_fetch({"_id": index})
             if "Error" in data and data["Error"] == 401:
                 filter["_item"] = index
                 return self.get_next(filter)
