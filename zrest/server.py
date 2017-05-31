@@ -410,15 +410,11 @@ class App:
             if parsed is None:
                 final["response"] = 404
             else:
-                print(verb)
-                print(kwargs)
-                print(parsed["methods"][verb])
                 final["payload"] = parsed["methods"][verb](**kwargs)
                 if final["payload"]:
                     payload = json.loads(final["payload"])
                 params = parsed["params"]
                 #if (len(payload["data"]) == 1 and "_embedded" in payload["data"][0]):  # To be changed with HAL HATEOAS
-                print(payload)
                 if ("total" in payload and payload["total"] == 1 and isinstance(payload["data"], list) and
                         len(payload["data"]) > 0):
                     payload = payload["data"][0]

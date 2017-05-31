@@ -537,12 +537,13 @@ class ShelveModel(RestfulBaseInterface):
             try:
                 with shelve_open(self._meta_path) as shelf:
                     ids = list(shelf["ids"])
-                    final_set = set([int(id) for id in ids])
+                final_set = set([int(id) for id in ids])
             except (KeyError, PermissionError):
                 time.sleep(random.randint(0, 2)+random.randint(0, 1000)/1000)
                 continue
             else:
                 break
+        print("GO ON")
         #final_set = set(range(0, next(self)))
         order = str()
         fields = list()
