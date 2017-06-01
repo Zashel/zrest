@@ -307,8 +307,9 @@ class ShelveModel(RestfulBaseInterface):
             data = dict(zip(self.headers, data))
         for field in data:
             if self.light_index is True:
-                index_path = os.path.join(self._index_path(field), str(data[field]), str(registry))
-                os.makedirs(index_path, exist_ok=True)
+                if field in self.index_fields:
+                    index_path = os.path.join(self._index_path(field), str(data[field]), str(registry))
+                    os.makedirs(index_path, exist_ok=True)
             else:
                 if (any([os.path.exists(file)
                         for file in glob.glob("{}.*".format(self._index_path(field)))]+[False]) and
