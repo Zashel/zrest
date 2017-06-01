@@ -7,6 +7,7 @@ import uuid
 import glob
 import sys
 import random
+import shutil
 
 if sys.version_info.minor == 3:
     from contextlib import closing
@@ -37,7 +38,8 @@ class ShelveModel(RestfulBaseInterface):
                                                unique=None,
                                                unique_is_id=False,
                                                split_unique=0,
-                                               to_block = True):
+                                               to_block=True,
+                                               light_index=True):
         """
         Initializes ShelveModel
         
@@ -59,6 +61,7 @@ class ShelveModel(RestfulBaseInterface):
             os.makedirs(filepath)
         if items_per_page is None:
             items_per_page = 50
+        self.light_index = light_index
         self.uuid = str(uuid.uuid4())
         self._filepath = filepath
         self._alive = False
@@ -90,13 +93,14 @@ class ShelveModel(RestfulBaseInterface):
                 shelf["class"] = self.__class__.__name__
                 shelf["name"] = self._name
                 shelf["ids"] = list()
-            for index in self.index_fields:
-                if (self._unique_is_id is True and self._unique != index) or self._unique_is_id is False:
-                    with shelve_open(self._index_path(index)) as shelf:
-                        shelf["filepath"] = self._index_path(index)
-            for group in range(0, groups):
-                with shelve_open(self._data_path(group)) as shelf:
-                    shelf["filepath"] = self._data_path(group)
+            if self.light_index is False:
+                for index in self.index_fields:
+                    if (self._unique_is_id is True and self._unique != index) or self._unique_is_id is False:
+                        with shelve_open(self._index_path(index)) as shelf:
+                            shelf["filepath"] = self._index_path(index)
+                for group in range(0, groups):
+                    with shelve_open(self._data_path(group)) as shelf:
+                        shelf["filepath"] = self._data_path(group)
         self.writer = self._writer()
         with shelve_open(self._meta_path, "r") as shelf:
             self._groups = shelf["groups"]
@@ -231,7 +235,6 @@ class ShelveModel(RestfulBaseInterface):
                 blocked = True
         return blocked
 
-
     def _wait_to_block(self, file):
         while True:
             if self.is_blocked(file) is True:
@@ -303,42 +306,52 @@ class ShelveModel(RestfulBaseInterface):
         if isinstance(data, list) and self.headers is not None and len(data) == len(self.headers):
             data = dict(zip(self.headers, data))
         for field in data:
-            if (any([os.path.exists(file)
-                    for file in glob.glob("{}.*".format(self._index_path(field)))]+[False]) and
-                    (self.is_blocked(self._index_path(field)) is False or self._to_block is False)):
-                with shelve_open(self._index_path(field)) as shelf:
-                    index = str(data[field])
-                    last = shelf
-                    if not index in shelf:
-                        if field != self._unique or self._split_unique == 0:
-                            shelf[str(index)] = set()
-                        elif self._unique_is_id is False:
-                            offset = len(str(index))%self._split_unique
-                            if offset:
-                                inter = str(index)[0:offset]
-                                if inter not in last:
-                                    last[inter] = dict()
-                                last = last[inter]
-                            for x in range(ceil(len(str(index))/self._unique)):
-                                inter = str(index)[offset+x*self._split_unique:offset+(x+1)*self._split_unique]
-                                if inter not in last:
-                                    last[inter] = dict()
-                                last = last[inter]
-                            last = registry
-                    if field != self._unique:
-                        shelf[str(index)] |= {registry}
-                    else:
-                        shelf[str(index)] = {registry}
+            if self.light_index is True:
+                index_path = os.path.join(self._index_path(field), str(data[field]), str(registry))
+                os.makedirs(index_path, exist_ok=True)
+            else:
+                if (any([os.path.exists(file)
+                        for file in glob.glob("{}.*".format(self._index_path(field)))]+[False]) and
+                        (self.is_blocked(self._index_path(field)) is False or self._to_block is False)):
+                    with shelve_open(self._index_path(field)) as shelf:
+                        index = str(data[field])
+                        last = shelf
+                        if not index in shelf:
+                            if field != self._unique or self._split_unique == 0:
+                                shelf[str(index)] = set()
+                            elif self._unique_is_id is False:
+                                offset = len(str(index))%self._split_unique
+                                if offset:
+                                    inter = str(index)[0:offset]
+                                    if inter not in last:
+                                        last[inter] = dict()
+                                    last = last[inter]
+                                for x in range(ceil(len(str(index))/self._unique)):
+                                    inter = str(index)[offset+x*self._split_unique:offset+(x+1)*self._split_unique]
+                                    if inter not in last:
+                                        last[inter] = dict()
+                                    last = last[inter]
+                                last = registry
+                        if field != self._unique:
+                            shelf[str(index)] |= {registry}
+                        else:
+                            shelf[str(index)] = {registry}
                     
     def _del_index(self, data, registry):
-        for field in data:
-            if (any([os.path.exists(file)
-                    for file in glob.glob("{}.*".format(self._index_path(field)))]+[False]) and
-                    self.is_blocked(self._index_path(field)) is False):
-                with shelve_open(self._index_path(field)) as shelf:
-                    index = str(data[field])
-                    if index in shelf:
-                        shelf[index] -= {registry}
+        if self.light_index is True:
+            for field in data:
+                index_path = os.path.join(self._index_path(field), str(data[field]), str(registry))
+                if os.path.exists(index_path) is True:
+                    shutil.rmtree(index_path, ignore_errors=True)
+        else:
+            for field in data:
+                if (any([os.path.exists(file)
+                        for file in glob.glob("{}.*".format(self._index_path(field)))]+[False]) and
+                        self.is_blocked(self._index_path(field)) is False):
+                    with shelve_open(self._index_path(field)) as shelf:
+                        index = str(data[field])
+                        if index in shelf:
+                            shelf[index] -= {registry}
 
     def _check_child(self, data):
         if self._as_child:
@@ -384,12 +397,18 @@ class ShelveModel(RestfulBaseInterface):
                  if str(data[index][index_name]) not in index_dict:
                      index_dict[str(data[index][index_name])] = set()
                  index_dict[str(data[index][index_name])].add(int(index))
-             with shelve_open(self._index_path(index_name)) as shelf:
+             if self.light_index is True:
                  for index in index_dict:
-                     if index not in shelf:
-                         shelf[index] = index_dict[index]
-                     else:
-                         shelf[index] |= index_dict[index]
+                     for item in index_dict[index]:
+                         item = str(item)
+                         os.makedirs(os.path.join(self._index_path(index_name), index, item))
+             else:
+                 with shelve_open(self._index_path(index_name)) as shelf:
+                     for index in index_dict:
+                         if index not in shelf:
+                             shelf[index] = index_dict[index]
+                         else:
+                             shelf[index] |= index_dict[index]
         with shelve_open(self._meta_path) as shelf:
              total, next_ = len(self), next(self)
              shelf["total"] = total + len(data)
@@ -563,6 +582,7 @@ class ShelveModel(RestfulBaseInterface):
             fields = filter["fields"].split(",")
         sub_order = dict()
         final_order = list()
+        print(filter)
         for field in filter:
             if field not in ("page", "items_per_page", "fields"):
                 subfilter = set()
@@ -571,45 +591,55 @@ class ShelveModel(RestfulBaseInterface):
                 elif field == "_id" and filter[field] == "":
                     subfilter = final_set
                 else:
-                    if any([os.path.exists(file)
-                            for file in glob.glob("{}.*".format(self._index_path(field)))]+[False]):
-                        with shelve_open(self._index_path(field), "r") as index:
-                            if self._unique != field or self._split_unique == 0:
-                                if str(filter[field]) in index:
-                                    subfilter = index[str(filter[field])]
-                            else:
-                                offset = len(str(index))%self._split_unique
-                                last = index
-                                if offset:
-                                    inter = str(index)[0:offset]
-                                    last = last[inter]
-                                for x in range(ceil(len(str(index))/self._split_unique)):
-                                    inter = str(index)[offset+x*self._split_unique:offset+(x+1)*self._split_unique]
-                                    last = last[inter]
-                                subfilter = {last}
+                    if self.light_index is True:
+                        if os.path.exists(os.path.join(self._index_path(field), str(filter[field]))) is True:
+                            subfilter = os.listdir(os.path.join(self._index_path(field), str(filter[field])))
+                            subfilter = set([int(sub) for sub in subfilter])
+                            print(subfilter)
+                    else:
+                        if any([os.path.exists(file)
+                                for file in glob.glob("{}.*".format(self._index_path(field)))]+[False]):
+                            with shelve_open(self._index_path(field), "r") as index:
+                                if self._unique != field or self._split_unique == 0:
+                                    if str(filter[field]) in index:
+                                        subfilter = index[str(filter[field])]
+                                else: #This is Shit!
+                                    offset = len(str(index))%self._split_unique
+                                    last = index
+                                    if offset:
+                                        inter = str(index)[0:offset]
+                                        last = last[inter]
+                                    for x in range(ceil(len(str(index))/self._split_unique)):
+                                        inter = str(index)[offset+x*self._split_unique:offset+(x+1)*self._split_unique]
+                                        last = last[inter]
+                                    subfilter = {last}
                 final_set &= subfilter
         final_set = list(final_set)
         final_set.sort()
         if len(order) > 0:
             for _id in final_set:
-                field = order[0] #TODO: Accept many fields
-                if field.startswith("-"):
-                    sfield = field[1:]
+                if self.light_index is True:
+                    final_order = final_set
+                    #TODO
                 else:
-                    sfield = field
-                if any([os.path.exists(file)
-                        for file in glob.glob("{}.*".format(self._index_path(sfield)))] + [False]):
-                    with shelve_open(self._index_path(sfield), "r") as index:
-                        sub_order[sfield] = index.copy()
-                    keys = list(sub_order.keys())
+                    field = order[0] #TODO: Accept many fields
                     if field.startswith("-"):
-                        keys.reverse()
+                        sfield = field[1:]
                     else:
-                        keys.sort()
-                    for indexes in keys:
-                        for key in indexes:
-                            if key in final_set:
-                                final_order.append(key)
+                        sfield = field
+                    if any([os.path.exists(file)
+                            for file in glob.glob("{}.*".format(self._index_path(sfield)))] + [False]):
+                        with shelve_open(self._index_path(sfield), "r") as index:
+                            sub_order[sfield] = index.copy()
+                        keys = list(sub_order.keys())
+                        if field.startswith("-"):
+                            keys.reverse()
+                        else:
+                            keys.sort()
+                        for indexes in keys:
+                            for key in indexes:
+                                if key in final_set:
+                                    final_order.append(key)
         else:
             final_order = final_set
         return {"filter": final_order[int(items_per_page)*(int(page)-1):int(items_per_page)*int(page)],

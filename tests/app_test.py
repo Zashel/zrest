@@ -50,7 +50,7 @@ class App_Test_0(unittest.TestCase):
     def setUp(self):
         self.data1 = {"a": 1, "b": 2, "c": 3}
         self.data1_id = self.data1.copy()
-        self.data1_id.update({"_id": 0,
+        self.data1_id.update({"_id": 1,
                               "_links": {"self": {"href": "/model1/0"}}})
         self.datas = [dict(zip(("a", "b", "c"), data)) for data in [[4, 5, 6],
                                                                     [7, 8, 9],
@@ -66,7 +66,7 @@ class App_Test_0(unittest.TestCase):
         self.data2id = {"a":4, "b":5, "c":9, "_id":1, "_links": {"self": {"href": "/model1/1"}}}
         self.data3 = {"a":16, "b":17, "c":18}
         self.data3id = self.data3.copy()
-        self.data3id.update({"_id": 4,
+        self.data3id.update({"_id": 5,
                              "_links": {"self": {"href": "/model1/4"}}})
 
     def test_0_post(self):
@@ -74,7 +74,7 @@ class App_Test_0(unittest.TestCase):
                             json = self.data1)
         self.assertEqual(req.status_code, 201)
         self.assertEqual(req.headers["Content-Type"], "application/json; charset=utf-8")
-        self.assertEqual(req.headers["Location"], "/model1/0")
+        self.assertEqual(req.headers["Location"], "/model1/1")
         self.assertEqual(json.loads(req.text), self.data1_id)
         datas_id = self.datas.copy()
         for index, data in enumerate(self.datas):
@@ -84,7 +84,7 @@ class App_Test_0(unittest.TestCase):
             self.assertEqual(req.headers["Content-Type"], "application/json; charset=utf-8")
             self.assertEqual(req.headers["Location"], "/model1/{}".format(index+1))
             datas_id[index].update({"_id": json.loads(req.text)["_id"]})
-            self.assertEqual(json.loads(req.text), datas_id[index])
+            self.assertEqual(json.loads(req.text), datas_id[index+1])
 
     def test_1_get(self):
         for query in self.gets1:
@@ -154,7 +154,6 @@ class App_Test_1(unittest.TestCase):
         shutil.rmtree(cls.path_customers)
         shutil.rmtree(cls.path_invoices)
 
-
     def test_00_post(self):
         print("posting")
         req = requests.post("http://localhost:9001/customers",
@@ -164,6 +163,9 @@ class App_Test_1(unittest.TestCase):
         print(req.text)
         req = requests.post("http://localhost:9001/customers",
                             json={"dni": "11111111J", "nombre": "Nanai"})
+
+        req = requests.get("http://localhost:9001/customers/11111111J")
+        print("HERE AGAIN ", req.text)
 
     def test_01_post(self):
         req = requests.post("http://localhost:9001/invoices",
@@ -176,8 +178,9 @@ class App_Test_1(unittest.TestCase):
         print(req.text)
         req = requests.patch("http://localhost:9001/invoices/1",
                             json={"cliente": 1, "fecha": "01/01/2017", "importe": "10.55"})
+
         print("HERE ", req.text)
-        req = requests.get("http://localhost:9001/invoices")
+        req = requests.get("http://localhost:9001/invoices/1")
         print("AND HERE ", req.text)
 
     def test_1_post_foreign(self):
