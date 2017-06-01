@@ -116,7 +116,8 @@ class ShelveModel(RestfulBaseInterface):
                     final = meta["total"]
             except (KeyboardInterrupt, SystemExit):
                 raise
-            except:
+            except Exception as e:
+                print("__len__: ", e)
                 continue
             else:
                 if final is not None:
@@ -130,8 +131,9 @@ class ShelveModel(RestfulBaseInterface):
                 with shelve_open(self._meta_path, "r") as meta:
                     final = meta["next"]
             except (KeyboardInterrupt, SystemExit):
-                    raise
-            except:
+                raise
+            except Exception as e:
+                print("__next__: ", e)
                 continue
             else:
                 if final is not None:
@@ -243,6 +245,7 @@ class ShelveModel(RestfulBaseInterface):
                 try:
                     self._block(file)
                 except (BlockedFile, PermissionError):
+                    print("Blocked: ", file)
                     continue
                 else:
                     time.sleep(0.05)
@@ -561,7 +564,8 @@ class ShelveModel(RestfulBaseInterface):
                 with shelve_open(self._meta_path) as shelf:
                     ids = list(shelf["ids"])
                 final_set = set([int(id) for id in ids])
-            except (KeyError, PermissionError):
+            except (KeyError, PermissionError) as e:
+                print("_filter: ", e)
                 time.sleep(random.randint(0, 2)+random.randint(0, 1000)/1000)
                 continue
             else:
