@@ -340,10 +340,13 @@ class ShelveModel(RestfulBaseInterface):
                     
     def _del_index(self, data, registry):
         if self.light_index is True:
-            for field in data:
-                index_path = os.path.join(self._index_path(field), str(data[field]), str(registry))
-                if os.path.exists(index_path) is True:
-                    shutil.rmtree(index_path, ignore_errors=True)
+            try:
+                for field in data:
+                    index_path = os.path.join(self._index_path(field), str(data[field]), str(registry))
+                    if os.path.exists(index_path) is True:
+                        shutil.rmtree(index_path, ignore_errors=True)
+            except TypeError:
+                print(data, registry)
         else:
             for field in data:
                 if (any([os.path.exists(file)
