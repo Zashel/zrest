@@ -408,7 +408,10 @@ class ShelveModel(RestfulBaseInterface):
                  for index in index_dict:
                      for item in index_dict[index]:
                          item = str(item)
-                         os.makedirs(os.path.join(self._index_path(index_name), index, item))
+                         try:
+                            os.makedirs(os.path.join(self._index_path(index_name), index, item))
+                         except PermissionError:
+                             pass
              else:
                  with shelve_open(self._index_path(index_name)) as shelf:
                      for index in index_dict:
@@ -570,7 +573,6 @@ class ShelveModel(RestfulBaseInterface):
                 continue
             else:
                 break
-        print("GO ON")
         #final_set = set(range(0, next(self)))
         order = str()
         fields = list()
@@ -590,7 +592,6 @@ class ShelveModel(RestfulBaseInterface):
             fields = filter["fields"].split(",")
         sub_order = dict()
         final_order = list()
-        print(filter)
         for field in filter:
             if field not in ("page", "items_per_page", "fields"):
                 subfilter = set()
@@ -603,7 +604,6 @@ class ShelveModel(RestfulBaseInterface):
                         if os.path.exists(os.path.join(self._index_path(field), str(filter[field]))) is True:
                             subfilter = os.listdir(os.path.join(self._index_path(field), str(filter[field])))
                             subfilter = set([int(sub) for sub in subfilter])
-                            print(subfilter)
                     else:
                         if any([os.path.exists(file)
                                 for file in glob.glob("{}.*".format(self._index_path(field)))]+[False]):
