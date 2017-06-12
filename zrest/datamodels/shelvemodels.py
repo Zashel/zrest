@@ -9,17 +9,43 @@ import sys
 import random
 import shutil
 
-if sys.version_info.minor == 3:
-    from contextlib import closing
-    shelve_open = lambda file, flag="c", protocol=None, writeback=False: closing(shelve.open(file, flag))
-else:
-    shelve_open = shelve.open
+#if sys.version_info.minor == 3:
+#    from contextlib import closing
+#    shelve_open = lambda file, flag="c", protocol=None, writeback=False: closing(shelve.open(file, flag))
+#else:
+#    shelve_open = shelve.open
 from multiprocessing import Pipe
 from zashel.utils import threadize
 from zrest.basedatamodel import *
 from zrest.exceptions import *
 from math import ceil
+from .filelock import FileLock, Timeout
+from contextlib import contextmanager
 import json
+
+@contextmanager
+def shelve_open(pathname, flag="c", protocol=None, writeback=False, timeout=None, poll_interval=None):
+    if os.path.exists(pathname):
+        if flag == "c":
+            shelf = shelve.open(pathname, flag)
+            shelf.close()
+        else:
+            raise FileNotFoundError
+    lock = FileLock(pathname)
+    kwargs = dict()
+    if timeout is not None:
+        kwargs["timeout"] = timeout
+    if poll_interval is not None:
+        kwargs["poll_interval"] = poll_interval
+    lock.acquire(**kwargs)
+    try:
+        shelf = shelve.open(pathname, flag)
+        yield
+    except Timeout:
+        pass #TODO review if it works
+    finally:
+        shelf.close()
+        lock.release()
 
 
 class ShelveModel(RestfulBaseInterface):
