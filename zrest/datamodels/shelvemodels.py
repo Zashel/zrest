@@ -24,14 +24,14 @@ from contextlib import contextmanager
 import json
 
 @contextmanager
-def shelve_open(pathname, flag="c", protocol=None, writeback=False, timeout=None, poll_interval=None):
-    if os.path.exists(pathname):
-        if flag == "c":
-            shelf = shelve.open(pathname, flag)
-            shelf.close()
-        else:
-            raise FileNotFoundError
-    lock = FileLock(pathname)
+def shelve_open(pathname, flag="c", protocol=None, writeback=False, timeout=5, poll_interval=None,
+                lockes=dict()): #It's an easy way to save it on memory
+    if os.path.exists(pathname) is False:
+        shelf = shelve.open(pathname, "c")
+        shelf.close()
+    if pathname not in lockes:
+        lockes[pathname] = FileLock(pathname)
+    lock = lockes[pathname]
     kwargs = dict()
     if timeout is not None:
         kwargs["timeout"] = timeout
@@ -39,8 +39,8 @@ def shelve_open(pathname, flag="c", protocol=None, writeback=False, timeout=None
         kwargs["poll_interval"] = poll_interval
     lock.acquire(**kwargs)
     try:
-        shelf = shelve.open(pathname, flag)
-        yield
+        shelf = shelve.open(pathname, flag, protocol, writeback)
+        yield shelf
     except Timeout:
         pass #TODO review if it works
     finally:
@@ -175,12 +175,8 @@ class ShelveModel(RestfulBaseInterface):
 
     @name.setter
     def name(self, value):
-        self._wait_to_block(self._meta_path)
-        self._keep_alive(self._meta_path)
-        if self._name == None:
-            with shelve_open(self._meta_path) as shelf:
-                shelf["name"] = value
-        self._alive = False
+        with shelve_open(self._meta_path) as shelf:
+            shelf["name"] = value
         self._name = value
 
     @property
@@ -224,77 +220,6 @@ class ShelveModel(RestfulBaseInterface):
 
     def _data_path(self, group):
         return os.path.join(self.filepath, "data_{}".format(str(group)))
-
-    def _block(self, file):
-        assert file in [self._meta_path, ] + self.indexes_files + self.data_files
-        if self.is_blocked(file) is False:
-            with open("{}.block".format(file), "w") as block:
-                block.write("{}\t{}".format(self.uuid, datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-        else:
-            raise BlockedFile
-
-    def _unblock(self, file):
-        if self.is_blocked(file) is False:
-            try:
-                os.remove("{}.block".format(file))
-            except (FileNotFoundError, PermissionError):
-                pass
-
-    def is_blocked(self, file):
-        """
-        Checks if given file is blocked
-        :param file: file to check.
-        :returns: True if blocked, False if not blocked
-
-        """
-        blocked = False
-        filepath = "{}.block".format(file)
-        if os.path.exists(filepath):
-            try:
-                with open(filepath, "r") as block:
-                    uuid, date = block.read().strip("\n").split("\t")
-                date = datetime.datetime.strptime(date, "%Y-%m-%d %H:%M:%S")
-                now = datetime.datetime.now()
-                if uuid != self.uuid and date+datetime.timedelta(seconds=10)>now:
-                    blocked = True
-            except (FileNotFoundError, ValueError):
-                pass
-            except (PermissionError):
-                blocked = True
-        return blocked
-
-    def _wait_to_block(self, file):
-        while True:
-            if self.is_blocked(file) is True:
-                time.sleep(0.5)
-            else:
-                try:
-                    self._block(file)
-                except (BlockedFile, PermissionError):
-                    print("Blocked: ", file)
-                    continue
-                else:
-                    time.sleep(0.05)
-                    if self.is_blocked(file) is False:
-                        self._alive = True
-                        break
-
-    @threadize
-    def _keep_alive(self, file):
-        counter = int()
-        while self._alive is True:
-            if os.path.exists("{}.block".format(file)):
-                if self._alive is True and counter%250==0:
-                    try:
-                        self._block(file)
-                    except (BlockedFile, PermissionError, FileNotFoundError) as e:
-                        print(e)
-                        self._alive = False
-            else:
-                self._alive = False
-            counter += 1
-            time.sleep(0.5)
-        self._unblock(file)
 
     def _send_pipe(self, **kwargs):
         self._pipe_out.send(kwargs)
@@ -341,8 +266,7 @@ class ShelveModel(RestfulBaseInterface):
                     os.makedirs(index_path, exist_ok=True)
             else:
                 if (any([os.path.exists(file)
-                        for file in glob.glob("{}.*".format(self._index_path(field)))]+[False]) and
-                        (self.is_blocked(self._index_path(field)) is False or self._to_block is False)):
+                        for file in glob.glob("{}.*".format(self._index_path(field)))]+[False])):
                     with shelve_open(self._index_path(field)) as shelf:
                         index = str(data[field])
                         last = shelf
@@ -379,8 +303,7 @@ class ShelveModel(RestfulBaseInterface):
         else:
             for field in data:
                 if (any([os.path.exists(file)
-                        for file in glob.glob("{}.*".format(self._index_path(field)))]+[False]) and
-                        self.is_blocked(self._index_path(field)) is False):
+                        for file in glob.glob("{}.*".format(self._index_path(field)))]+[False])):
                     with shelve_open(self._index_path(field)) as shelf:
                         index = str(data[field])
                         if index in shelf:
@@ -744,9 +667,6 @@ class ShelveModel(RestfulBaseInterface):
                 break
             else:
                 send = 0
-                if self._to_block is True:
-                    self._wait_to_block(self._meta_path)
-                    self._keep_alive(self._meta_path)
                 if "filter" in data and data["action"] not in ("new", "fetch"):
                     filter = data["filter"]
                     filtered = self._filter(filter)
@@ -775,37 +695,13 @@ class ShelveModel(RestfulBaseInterface):
                         total = next(self)
                         filename_reg = {self._data_path(total % self.groups): total}
                 for filename in filename_reg:
-                    if self._to_block is True:
-                        self._wait_to_block(filename)
-                        self._keep_alive(filename)
-                        for field in self.index_fields:
-                            if any([os.path.exists(file)
-                                    for file in glob.glob("{}.*".format(self._index_path(field)))]+[False]):
-                                self._wait_to_block(self._index_path(field))
-                                self._keep_alive(self._index_path(field))
                     if data["action"] != "insert":
                         while True:
                             try:
-                                if (data["action"] != "fetch" and
-                                        (self._to_block is False or self.is_blocked(self._meta_path) is False)):
+                                if data["action"] != "fetch":
                                     self.__getattribute__("_{}".format(data["action"]))(data["data"],
                                                                                         filename_reg[filename],
                                                                                         filename)
-                                else:
-                                    self._alive = False
-                                    time.sleep(0.1)
-                                    self._wait_to_block(self._meta_path)
-                                    self._keep_alive(self._meta_path)
-                                    for filename in filename_reg:
-                                        self._wait_to_block(filename)
-                                        self._keep_alive(filename)
-                                        for field in self.index_fields:
-                                            if any([os.path.exists(file)
-                                                    for file in glob.glob("{}.*".format(self._index_path(field)))] +
-                                                           [False]):
-                                                self._wait_to_block(self._index_path(field))
-                                                self._keep_alive(self._index_path(field))
-                                    #continue
                             except (KeyboardInterrupt, SystemExit):
                                 raise
                             except Exception as e:
