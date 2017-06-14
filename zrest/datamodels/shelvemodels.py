@@ -1016,7 +1016,7 @@ class ShelveBlocking(ShelveModel):
         return blocker == _blocker
 
     def fetch(self, filter, **kwargs): #Returns error 401 if blocked
-        if "unblock" in filter:
+        if filter is not None and "unblock" in filter:
             self.unblock_registry(filter)
             return {"Error": 201}
         else:
@@ -1037,7 +1037,7 @@ class ShelveBlocking(ShelveModel):
             return ShelveModel.direct_fetch(self, filter, **kwargs)
 
     def replace(self, filter, data, **kwargs):
-        if "_blocker" in filter:
+        if filter is not None and "_blocker" in filter:
             blocker = filter["_blocker"]
             del (filter["_blocker"])
         else:
@@ -1054,7 +1054,7 @@ class ShelveBlocking(ShelveModel):
                 return ShelveModel.replace(self, {"_id": s_filter[0]}, data)
 
     def unblock_registry(self, filter=None):
-        if "_blocker" in filter:
+        if filter is not None and "_blocker" in filter:
             blocker = filter["_blocker"]
             del (filter["_blocker"])
         else:
