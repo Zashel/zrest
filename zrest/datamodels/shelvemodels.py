@@ -992,7 +992,7 @@ class ShelveBlocking(ShelveModel):
                                                                              "master_id",
                                                                              "timeout"],
                                                                     unique="master_id")
-        self._blocker = blocker
+        self.blocker = blocker
 
     @property
     def blocked_registry(self):
