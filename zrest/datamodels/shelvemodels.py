@@ -1048,18 +1048,24 @@ class ShelveBlocking(ShelveModel):
             if self.is_blocked(filter, blocker):
                 continue
             else:
-                self._blocking_model.new({"unique_id": self.unique_id,
+                self._blocking_model.new({"blocker": blocker,
                                           "master_id": item,
                                           "timeout": self.timeout()})
                 return ShelveModel.replace(self, {"_id": s_filter[0]}, data)
 
     def unblock_registry(self, filter=None):
+        if "_blocker" in filter:
+            blocker = filter["_blocker"]
+            del (filter["_blocker"])
+        else:
+            blocker = self.blocker
         if filter is None:
             filter = dict()
         if "_id" in filter:
-            master_id = filter["_id"]
-            self._blocking_model.drop({"unique_id": self.unique_id,
-                                       "master_id": master_id})
+            if self.is_blocked(filter) is False:
+                master_id = filter["_id"]
+                self._blocking_model.drop({"blocker": blocker,
+                                           "master_id": master_id})
         return {"Error": 204}
 
     def clean_timeouts(self, page=1):
