@@ -23,6 +23,7 @@ from .filelock import FileLock, Timeout
 from contextlib import contextmanager
 import json
 
+
 @contextmanager
 def shelve_open(pathname, flag="c", protocol=None, writeback=False, timeout=5, poll_interval=None,
                 lockes=dict()): #It's an easy way to save it on memory
@@ -966,14 +967,14 @@ class ShelveBlocking(ShelveModel):
     To use with zrest.
 
     """
-    def __init__(self, filepath, unique_id, groups=10, *, index_fields=None,
-                                                          headers=None,
-                                                          name=None,
-                                                          items_per_page=50,
-                                                          unique=None,
-                                                          unique_is_id=False,
-                                                          split_unique=0,
-                                                          to_block = True):
+    def __init__(self, filepath, blocker=None, groups=10, *, index_fields=None,
+                                                             headers=None,
+                                                             name=None,
+                                                             items_per_page=50,
+                                                             unique=None,
+                                                             unique_is_id=False,
+                                                             split_unique=0,
+                                                             to_block = True):
         ShelveModel.__init__(self, filepath, groups=10, index_fields=index_fields,
                                                         headers=headers,
                                                         name=name,
@@ -982,16 +983,16 @@ class ShelveBlocking(ShelveModel):
                                                         unique_is_id=unique_is_id,
                                                         split_unique=split_unique,
                                                         to_block = to_block)
-        self._blocked_registry = {"unique_id": None,
+        self._blocked_registry = {"blocker": None,
                                   "master_id": None,
                                   "timeout": datetime.datetime.now()}
-        self._blocking_model = ShelveModel(filepath+"-blocking", 1, index_fields=["unique_id",
+        self._blocking_model = ShelveModel(filepath+"-blocking", 1, index_fields=["blocker",
                                                                                   "master_id"],
-                                                                    headers=["unique_id",
+                                                                    headers=["blocker",
                                                                              "master_id",
                                                                              "timeout"],
                                                                     unique="master_id")
-        self.unique_id = unique_id
+        self._blocker = blocker
 
     @property
     def blocked_registry(self):
@@ -1004,31 +1005,36 @@ class ShelveBlocking(ShelveModel):
     def timeout(self):
         return datetime.datetime.now()+datetime.timedelta(minutes=25)
 
+    def is_blocked(self, filter, blocker, **kwargs):
+        filtered = self._filter(filter)
+        s_filter = filtered["filter"]
+        _blocker = None
+        if len(s_filter) == 1:
+            blocked = self._blocking_model.direct_fetch({"master_id": s_filter[0]})
+            if "data" in blocked and "master_id" in blocked["data"] and blocked["data"]["master_id"] == s_filter[0]:
+                _blocker = self.blocked_registry["blocker"]
+        return blocker == _blocker
+
     def fetch(self, filter, **kwargs): #Returns error 401 if blocked
         if "unblock" in filter:
             self.unblock_registry(filter)
             return {"Error": 201}
         else:
+            if "_blocker" in filter:
+                blocker = filter["_blocker"]
+                del(filter["_blocker"])
+            else:
+                blocker = self.blocker
             filtered = self._filter(filter)
             s_filter = filtered["filter"]
             if len(s_filter) == 1:
-                blocked = self._blocking_model.direct_fetch({"master_id": s_filter[0]})
-                if "master_id" in blocked and blocked == s_filter[0]:
-                    unique_id = self.blocked_registry["unique_id"]
-                    if unique_id == self.unique_id:
-                        self._blocking_model.replace({"master_id": blocked["master_id"]},
-                                                     {"timeout": self.timeout()})
-                        return ShelveModel.direct_fetch(filter, **kwargs)
-                    else:
-                        return {"Error": 401}
+                if self.is_blocked(filter, blocker) is True:
+                    return {"Error": 401}
                 else:
-                    blocked = self._blocking_model.new({"unique_id": self.unique_id,
-                                                        "master_id": s_filter[0],
-                                                        "timeout": self.timeout()})
-                    #self._blocked_registry = blocked["data"][0]
-                    return ShelveModel.direct_fetch(self, {"_id": s_filter[0]})
-            else:
-                return ShelveModel.direct_fetch(self, filter, **kwargs)
+                    self._blocking_model.new({"blocker": blocker,
+                                              "master_id": s_filter[0],
+                                              "timeout": self.timeout()})
+            return ShelveModel.direct_fetch(self, filter, **kwargs)
 
     def replace(self, filter, data, **kwargs):
         filtered = self._filter(filter)
@@ -1050,7 +1056,7 @@ class ShelveBlocking(ShelveModel):
         if "_id" in filter:
             master_id = filter["_id"]
             blocked = self._blocking_model.drop({"unique_id": self.unique_id,
-                                                   "master_id": master_id})
+                                                 "master_id": master_id})
         return {"Error": 204}
 
     def clean_timeouts(self, page=1):
@@ -1060,7 +1066,7 @@ class ShelveBlocking(ShelveModel):
         if "total" in all and all["total"] > all["items_per_page"]*all["page"]:
             self.clean_timeouts(all["page"]+1)
 
-    def get_next(self, filter, **kwargs):
+    def get_next(self, filter, **kwargs): #This is a shit!
         if "_item" in filter:
             item = filter["_item"]
             del(filter["_item"])
