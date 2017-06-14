@@ -414,8 +414,10 @@ class App:
                 if final["payload"]:
                     payload = json.loads(final["payload"])
                 params = parsed["params"]
+                if not payload:
+                    print(verb, kwargs, final)
                 #if (len(payload["data"]) == 1 and "_embedded" in payload["data"][0]):  # To be changed with HAL HATEOAS
-                if (payload and "total" in payload and payload["total"] == 1 and isinstance(payload["data"], list) and
+                if ("total" in payload and payload["total"] == 1 and isinstance(payload["data"], list) and
                         len(payload["data"]) > 0):
                     payload = payload["data"][0]
                 elif ("total" in payload and payload["total"] == 1 and isinstance(payload["data"], list) and
