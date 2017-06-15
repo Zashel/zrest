@@ -1015,7 +1015,9 @@ class ShelveBlocking(ShelveModel):
             if "data" in blocked and "master_id" in blocked["data"] and blocked["data"]["master_id"] == s_filter[0]:
                 _blocker = self.blocked_registry["blocker"]
         print(_blocker)
-        return blocker == _blocker
+        if _blocker is None:
+            return False
+        return blocker != _blocker
 
     def fetch(self, filter, **kwargs): #Returns error 401 if blocked
         if filter is not None and "unblock" in filter:
