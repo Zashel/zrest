@@ -1050,6 +1050,7 @@ class ShelveBlocking(ShelveModel):
             del(filter["_blocker"])
         else:
             blocker = self.blocker
+        print("Replace Filter: " filter)
         filtered = self._filter(filter)
         s_filter = filtered["filter"]
         for item in s_filter:
