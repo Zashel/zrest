@@ -1036,7 +1036,7 @@ class ShelveBlocking(ShelveModel):
                     self._blocking_model.new({"blocker": blocker,
                                               "master_id": s_filter[0],
                                               "timeout": self.timeout()})
-            return ShelveModel.direct_fetch(self, filter, **kwargs)
+            return ShelveModel.direct_fetch(self, {"_id": s_filter[0], **kwargs)
 
     def replace(self, filter, data, **kwargs):
         if filter is not None and "_blocker" in filter:
@@ -1078,6 +1078,7 @@ class ShelveBlocking(ShelveModel):
             self.clean_timeouts(all["page"]+1)
 
     def get_next(self, filter, **kwargs): #This is a shit!
+        print("Filter get_next: ", filter)
         if "_item" in filter:
             item = filter["_item"]
             del(filter["_item"])
