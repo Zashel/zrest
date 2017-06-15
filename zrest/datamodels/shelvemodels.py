@@ -1067,7 +1067,7 @@ class ShelveBlocking(ShelveModel):
         if filter is None:
             filter = dict()
         if "_id" in filter:
-            if self.is_blocked(filter) is False:
+            if self.is_blocked(filter, blocker) is False:
                 master_id = filter["_id"]
                 self._blocking_model.drop({"blocker": blocker,
                                            "master_id": master_id})
