@@ -1053,7 +1053,7 @@ class ShelveBlocking(ShelveModel):
         filtered = self._filter(filter)
         s_filter = filtered["filter"]
         for item in s_filter:
-            if self.is_blocked(filter, blocker):
+            if self.is_blocked({"master_id": item}, blocker):
                 continue
             else:
                 self._blocking_model.new({"blocker": blocker,
