@@ -1046,7 +1046,7 @@ class ShelveBlocking(ShelveModel):
     def replace(self, filter, data, **kwargs):
         if filter is not None and "_blocker" in filter:
             blocker = filter["_blocker"]
-            del (filter["_blocker"])
+            del(filter["_blocker"])
         else:
             blocker = self.blocker
         filtered = self._filter(filter)
@@ -1058,7 +1058,7 @@ class ShelveBlocking(ShelveModel):
                 self._blocking_model.new({"blocker": blocker,
                                           "master_id": item,
                                           "timeout": self.timeout()})
-                return ShelveModel.replace(self, {"_id": s_filter[0]}, data)
+                return ShelveModel.replace(self, {"_id": item}, data)
 
     def unblock_registry(self, filter=None):
         if filter is not None and "_blocker" in filter:
