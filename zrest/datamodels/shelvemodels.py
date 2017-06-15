@@ -432,6 +432,7 @@ class ShelveModel(RestfulBaseInterface):
         if ((self._unique in data and self._unique not in filter) or
             (self._unique in data and self._unique in filter and data[self._unique]!=filter[self._unique])):
             test = self.fetch({self._unique: data[self._unique]})
+        print("Replace: ", filter)
         if not test:
             self._send_pipe(action="replace", filter=filter, data=data, pipe=conn_out)
         else:
