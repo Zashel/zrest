@@ -1036,7 +1036,7 @@ class ShelveBlocking(ShelveModel):
                     self._blocking_model.new({"blocker": blocker,
                                               "master_id": s_filter[0],
                                               "timeout": self.timeout()})
-            return ShelveModel.direct_fetch(self, {"_id": s_filter[0], **kwargs)
+            return ShelveModel.direct_fetch(self, {"_id": s_filter[0]}, **kwargs)
 
     def replace(self, filter, data, **kwargs):
         if filter is not None and "_blocker" in filter:
