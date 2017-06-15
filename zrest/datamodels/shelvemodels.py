@@ -1044,6 +1044,9 @@ class ShelveBlocking(ShelveModel):
                 del(filter["master_id"])
             return ShelveModel.direct_fetch(self, filter, **kwargs)
 
+    def edit(self, *args, **kwargs):
+        return self.replace(*args, **kwargs)
+
     def replace(self, filter, data, **kwargs):
         if filter is not None and "_blocker" in filter:
             blocker = filter["_blocker"]
