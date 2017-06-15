@@ -1013,6 +1013,7 @@ class ShelveBlocking(ShelveModel):
             blocked = self._blocking_model.direct_fetch({"master_id": s_filter[0]})
             if "data" in blocked and "master_id" in blocked["data"] and blocked["data"]["master_id"] == s_filter[0]:
                 _blocker = self.blocked_registry["blocker"]
+        print(_blocker)
         return blocker == _blocker
 
     def fetch(self, filter, **kwargs): #Returns error 401 if blocked
