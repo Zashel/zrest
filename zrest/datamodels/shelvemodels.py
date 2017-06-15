@@ -1094,8 +1094,6 @@ class ShelveBlocking(ShelveModel):
             del(filter["_item"])
         else:
             item = None
-        if "_blocker" in filter:
-            del(filter["_blocker"])
         filtered = self._filter(filter)["filter"]
         if item is None or int(item) not in filtered:
             index = -1
@@ -1104,7 +1102,7 @@ class ShelveBlocking(ShelveModel):
             index = filtered.index(item)
         try:
             index = filtered[index+1]
-            data = self.direct_fetch({"_id": index})
+            data = self.fetch(filter)
             if "Error" in data and data["Error"] == 401:
                 filter["_item"] = index
                 return self.get_next(filter)
