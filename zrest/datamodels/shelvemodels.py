@@ -621,6 +621,7 @@ class ShelveModel(RestfulBaseInterface):
         return({"count": filter["total"]})
 
     def direct_fetch(self, filter, filtered=None, **kwargs):
+        print("Filter Direct_Fetch: ", filter)
         final = list()
         filtered = self._filter(filter)
         filter = filtered["filter"]
