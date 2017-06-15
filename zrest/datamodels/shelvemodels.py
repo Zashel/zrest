@@ -1112,6 +1112,7 @@ class ShelveBlocking(ShelveModel):
             data = self.fetch(fil)
             if "Error" in data and data["Error"] == 401:
                 filter["_item"] = index
+                filter["_blocker"] = blocker
                 return self.get_next(filter)
             else:
                 return data
