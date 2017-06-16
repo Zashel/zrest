@@ -1013,6 +1013,7 @@ class ShelveBlocking(ShelveModel):
         _blocker = None
         if len(s_filter) == 1:
             blocked = self._blocking_model.direct_fetch({"master_id": s_filter[0]})
+            print("Blocked: ", blocked)
             if "data" in blocked and "master_id" in blocked["data"] and blocked["data"]["master_id"] == s_filter[0]:
                 _blocker = self.blocked_registry["blocker"]
         print(_blocker)
