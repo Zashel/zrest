@@ -478,7 +478,7 @@ class App:
                                     "page" in payload["_embedded"][embedded] and
                                     "items_per_page" in payload["_embedded"][embedded]):
                                 total = payload["_embedded"][embedded]["total"]
-                                page = payload["_embedded"][embedded]["page"]
+                                page = payload["_embedded"][embedded]["pa2ge"]
                                 items_per_page = payload["_embedded"][embedded]["items_per_page"]
                                 if total > items_per_page:
                                     pages = ceil(total/items_per_page)
@@ -530,6 +530,8 @@ class App:
                                        ("prev", prev),
                                        ("next", next),
                                        ("self", page)):
+                        if name == "self":
+                            print("SELF: ", page)
                         #if name == "self" or (item != page and item <= pages and item >= 1):
                         new_filter.update({"page": item,
                                            "items_per_page": items_per_page})
