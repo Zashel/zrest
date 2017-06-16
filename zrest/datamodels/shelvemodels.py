@@ -1015,7 +1015,7 @@ class ShelveBlocking(ShelveModel):
             blocked = self._blocking_model.direct_fetch({"master_id": s_filter[0]})
             print("Blocked: ", blocked)
             if ("data" in blocked and len(blocked["data"]) > 0 and "master_id" in blocked["data"][0] and
-                    blocked["timeout"] >= datetime.datetime.now()):
+                    blocked["data"][0]["timeout"] >= datetime.datetime.now()):
                 _blocker = blocked["data"][0]["blocker"]
         print(_blocker)
         if _blocker is None:
