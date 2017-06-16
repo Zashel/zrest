@@ -478,7 +478,7 @@ class App:
                                     "page" in payload["_embedded"][embedded] and
                                     "items_per_page" in payload["_embedded"][embedded]):
                                 total = payload["_embedded"][embedded]["total"]
-                                page = payload["_embedded"][embedded]["pa2ge"]
+                                page = payload["_embedded"][embedded]["page"]
                                 items_per_page = payload["_embedded"][embedded]["items_per_page"]
                                 if total > items_per_page:
                                     pages = ceil(total/items_per_page)
