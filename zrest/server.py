@@ -487,8 +487,8 @@ class App:
                                     first = 1
                                     last = pages
                                 payload["_embedded"][embedded] = payload["_embedded"][embedded]["data"]
-                    return (payload, pages, next, prev, first, last)
-                payload, pages, next, prev, first, last = get_payload(payload)
+                    return (payload, pages, next, prev, first, last, page)
+                payload, pages, next, prev, first, last, page = get_payload(payload)
                 #if verb == POST:
                 #if isinstance(payload, list): #To be changed with HAL HATEOAS
                 #    payload = payload[0]
