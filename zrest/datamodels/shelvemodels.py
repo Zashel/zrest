@@ -1080,6 +1080,8 @@ class ShelveBlocking(ShelveModel):
                 master_id = filter["_id"]
                 self._blocking_model.drop({"blocker": blocker,
                                            "master_id": master_id})
+        else:
+            self._blocking_model.drop({"blocker": blocker})
         return {"Error": 204}
 
     def clean_timeouts(self, page=1):
