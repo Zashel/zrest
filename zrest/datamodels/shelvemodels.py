@@ -223,6 +223,15 @@ class ShelveModel(RestfulBaseInterface):
     def _meta_path(self):
         return os.path.join(self.filepath, "meta")
 
+    @property
+    def unique(self):
+        if len(self._unique) > 1:
+            return "_unique"
+        elif len(self._unique) == 1:
+            return self._unique[0]
+        else:
+            return None
+
     def _index_path(self, field):
         return os.path.join(self.filepath, "index_{}".format(field))
 
@@ -234,11 +243,14 @@ class ShelveModel(RestfulBaseInterface):
 
     def get_unique_hash(self, data):
         final = str()
-        for item in self._unique:
-            if type(data[item]) in (datetime.datetime, datetime.time, datetime.timedelta):
-                final += data[item].strftime("%Y%m%d")
-            else:
-                final += str(data[item])
+        if len(self._unique) > 1:
+            for item in self._unique:
+                if type(data[item]) in (datetime.datetime, datetime.time, datetime.timedelta):
+                    final += data[item].strftime("%Y%m%d")
+                else:
+                    final += str(data[item])
+        elif len(self._unique) == 0:
+            return data[self._unique[0]]
 
     def fetch(self, filter, **kwargs):
         """
@@ -272,6 +284,31 @@ class ShelveModel(RestfulBaseInterface):
                     final.append(data)
         return final
 
+    def _is_unique(self, data):
+        if self.light_index is True:
+            index_path = None
+            if self._unique is not None:
+                index_path = os.path.join(self._index_path(self.unique), str(self.get_unique_hash(data)))
+            if index_path is not None:
+                try:
+                    lsdir = os.listdir(index_path)
+                except FileNotFoundError:
+                    return False
+                if len(lsdir) > 0:
+                    return True
+                else:
+                    return False
+            else:
+                return False
+        else:
+            field = None
+            data_field = None
+            with shelve_open(self._index_path(self.unique)) as shelf:
+                if data_field in shelf and shelf[self.get_unique_hash(data)] != set():
+                    return True
+                else:
+                    return False
+
     def _set_index(self, data, registry):
         if isinstance(data, list) and self.headers is not None and len(data) == len(self.headers):
             data = dict(zip(self.headers, data))
@@ -279,8 +316,10 @@ class ShelveModel(RestfulBaseInterface):
             for field in data:
                 if field in self.index_fields:
                     index_path = os.path.join(self._index_path(field), str(data[field]), str(registry))
+                    os.makedirs(index_path, exist_ok=True)
             if len(self._unique) > 1:
                 index_path = os.path.join(self._index_path("_unique"), str(self.get_unique_hash(data)), str(registry))
+                os.makedirs(index_path, exist_ok=True)
         else:
             for field in data:
                 if (any([os.path.exists(file)
@@ -319,6 +358,10 @@ class ShelveModel(RestfulBaseInterface):
                     index_path = os.path.join(self._index_path(field), str(data[field]), str(registry))
                     if os.path.exists(index_path) is True:
                         shutil.rmtree(index_path, ignore_errors=True)
+                if len(self._unique) > 1:
+                    index_path = os.path.join(self._index_path("_unique"), str(self.get_unique_hash(data)))
+                    if os.path.exists(index_path) is True:
+                        shutil.rmtree(index_path, ignore_errors=True)
             except TypeError:
                 print(data, registry)
         else:
@@ -329,6 +372,11 @@ class ShelveModel(RestfulBaseInterface):
                         index = str(data[field])
                         if index in shelf:
                             shelf[index] -= {registry}
+            if len(self._unique) > 1:
+                with shelve_open(self._index_path(field)) as shelf:
+                    index = str(data[field])
+                    if index in shelf:
+                        del(shelf[index])
 
     def _check_child(self, data):
         if self._as_child:
@@ -348,12 +396,13 @@ class ShelveModel(RestfulBaseInterface):
         :param data: list with a dictionary for each item to upload
         :returns: New Data
         """
-        conn_in, conn_out = Pipe(False)
-        if self._unique is not None:
-            return {}
-        self._send_pipe(action="insert", data=data, pipe=conn_out)
-        recv = conn_in.recv()
-        return recv
+        if self.unique is None:
+            conn_in, conn_out = Pipe(False)
+            self._send_pipe(action="insert", data=data, pipe=conn_out)
+            recv = conn_in.recv()
+            return recv
+        else:
+            return {"Error": 501}
 
     def _insert(self, data, filename_reg):
         for filename in filename_reg:
@@ -367,7 +416,6 @@ class ShelveModel(RestfulBaseInterface):
                                 new_data.append(data[str(index)][header])
                             except KeyError:
                                 new_data.append("")
-                    shelf[str(index)] = new_data
         for index_name in self.index_fields:
              index_dict = dict()
              for index in data:
@@ -407,10 +455,8 @@ class ShelveModel(RestfulBaseInterface):
             return None
         conn_in, conn_out = Pipe(False)
         test = None
-        if self._unique in data:
-            test = self.fetch({self._unique: data[self._unique]})
-        if test and "total" in test and test["total"] > 0:
-            self._send_pipe(action="replace", data=data, filter={self._unique: data[self._unique]}, pipe=conn_out)
+        if self._is_unique(data) is True:
+            self._send_pipe(action="replace", data=data, filter={self.unique: self.get_unique_hash(data)}, pipe=conn_out)
         else:
             self._send_pipe(action="new", data=data, pipe=conn_out)
         recv = conn_in.recv()
@@ -449,10 +495,9 @@ class ShelveModel(RestfulBaseInterface):
             return None
         conn_in, conn_out = Pipe(False)
         test = None
-        if ((self._unique in data and self._unique not in filter) or
-            (self._unique in data and self._unique in filter and data[self._unique]!=filter[self._unique])):
-            test = self.fetch({self._unique: data[self._unique]})
-        print("Replace: ", filter)
+        if ((self.unique in data and self.unique not in filter) or
+            (self.unique in data and self.unique in filter and data[self.unique]!=filter[self.unique])):
+            test = self.fetch({self.unique: data[self.unique]})
         if not test:
             self._send_pipe(action="replace", filter=filter, data=data, pipe=conn_out)
         else:
@@ -487,9 +532,9 @@ class ShelveModel(RestfulBaseInterface):
             return None
         conn_in, conn_out = Pipe(False)
         test = None
-        if ((self._unique in data and self._unique not in filter) or
-                (self._unique in data and self._unique in filter and data[self._unique] != filter[self._unique])):
-            test = self.fetch({self._unique: data[self._unique]})
+        if ((self.unique in data and self.unique not in filter) or
+                (self.unique in data and self.unique in filter and data[self.unique] != filter[self.unique])):
+            test = self.fetch({self.unique: data[self.unique]}) #TODO Better
         if not test:
             self._send_pipe(action="edit", filter=filter, data=data, pipe=conn_out)
         else:
@@ -549,9 +594,9 @@ class ShelveModel(RestfulBaseInterface):
         fields = list()
         page = 1
         items_per_page = self.items_per_page
-        if self._unique_is_id and self._unique in filter:
-            filter["_id"] = filter[self._unique]
-            del(filter[self._unique])
+        if self._unique_is_id and self.unique in filter:
+            filter["_id"] = filter[self.unique]
+            del(filter[self.unique])
         if "order" in filter:
             order = filter["order"]
             order = order.split(",")
@@ -579,7 +624,7 @@ class ShelveModel(RestfulBaseInterface):
                         if any([os.path.exists(file)
                                 for file in glob.glob("{}.*".format(self._index_path(field)))]+[False]):
                             with shelve_open(self._index_path(field), "r") as index:
-                                if self._unique != field or self._split_unique == 0:
+                                if self.unique != field or self._split_unique == 0:
                                     if str(filter[field]) in index:
                                         subfilter = index[str(filter[field])]
                                 else: #This is Shit!
@@ -696,10 +741,10 @@ class ShelveModel(RestfulBaseInterface):
                     filter = filtered["filter"]
                     filename_reg = self._get_datafile(filter)
                 else:
-                    if self._unique_is_id and self._unique in data["data"]:
-                        filename_reg = data["data"][self._unique]
+                    if self._unique_is_id and self.unique in data["data"]:
+                        filename_reg = data["data"][self.unique]
                         filename_reg = {self._data_path(filename_reg%self.groups): filename_reg}
-                        del(data[self._unique])
+                        del(data[self.unique])
                     elif isinstance(data["data"], list) and data["action"] == "insert":
                         total = next(self)
                         total_reg = len(data["data"])
