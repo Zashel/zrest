@@ -97,7 +97,10 @@ class ShelveModel(RestfulBaseInterface):
         self._close = False
         self._headers = headers
         self._headers_checked = False
-        self._unique = unique
+        if isinstance(unique, str):
+            self._unique = unique
+        else:
+            self._unique = [unique]
         self._split_unique = split_unique
         self._unique_is_id = unique_is_id
         self._name = name
@@ -128,6 +131,10 @@ class ShelveModel(RestfulBaseInterface):
                 for group in range(0, groups):
                     with shelve_open(self._data_path(group)) as shelf:
                         shelf["filepath"] = self._data_path(group)
+                if len(self._unique) > 1:
+                    self._index_fields.append("_unique")
+                    with shelve_open(self._index_path("_unique")) as shelf:
+                        shelf["filepath"] = self._index_path("_unique")
         self.writer = self._writer()
         with shelve_open(self._meta_path, "r") as shelf:
             self._groups = shelf["groups"]
@@ -225,6 +232,14 @@ class ShelveModel(RestfulBaseInterface):
     def _send_pipe(self, **kwargs):
         self._pipe_out.send(kwargs)
 
+    def get_unique_hash(self, data):
+        final = str()
+        for item in self._unique:
+            if type(data[item]) in (datetime.datetime, datetime.time, datetime.timedelta):
+                final += data[item].strftime("%Y%m%d")
+            else:
+                final += str(data[item])
+
     def fetch(self, filter, **kwargs):
         """
         Gives the result of a query.
@@ -260,12 +275,14 @@ class ShelveModel(RestfulBaseInterface):
     def _set_index(self, data, registry):
         if isinstance(data, list) and self.headers is not None and len(data) == len(self.headers):
             data = dict(zip(self.headers, data))
-        for field in data:
-            if self.light_index is True:
+        if self.light_index is True:
+            for field in data:
                 if field in self.index_fields:
                     index_path = os.path.join(self._index_path(field), str(data[field]), str(registry))
-                    os.makedirs(index_path, exist_ok=True)
-            else:
+            if len(self._unique) > 1:
+                index_path = os.path.join(self._index_path("_unique"), str(self.get_unique_hash(data)), str(registry))
+        else:
+            for field in data:
                 if (any([os.path.exists(file)
                         for file in glob.glob("{}.*".format(self._index_path(field)))]+[False])):
                     with shelve_open(self._index_path(field)) as shelf:
@@ -291,6 +308,9 @@ class ShelveModel(RestfulBaseInterface):
                             shelf[str(index)] |= {registry}
                         else:
                             shelf[str(index)] = {registry}
+            if len(self._unique) > 1:
+                with shelve_open(self._index_path("_unique")) as shelf:
+                    shelf[self.get_unique_hash(data)] = {registry}
                     
     def _del_index(self, data, registry):
         if self.light_index is True:
