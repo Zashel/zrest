@@ -249,8 +249,10 @@ class ShelveModel(RestfulBaseInterface):
                     final += data[item].strftime("%Y%m%d")
                 else:
                     final += str(data[item])
-        elif len(self._unique) == 0 or type(self._unique) == str:
+        elif len(self._unique) == 0:
             return data[self._unique[0]]
+        elif type(self._unique) == str:
+            return data[self._unique]
 
     def fetch(self, filter, **kwargs):
         """
