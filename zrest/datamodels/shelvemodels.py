@@ -243,7 +243,7 @@ class ShelveModel(RestfulBaseInterface):
 
     def get_unique_hash(self, data):
         final = str()
-        if len(self._unique) > 1 or type(self._unique) != str:
+        if len(self._unique) > 1 and type(self._unique) != str:
             for item in self._unique:
                 if type(data[item]) in (datetime.datetime, datetime.time, datetime.timedelta):
                     final += data[item].strftime("%Y%m%d")
