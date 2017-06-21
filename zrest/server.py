@@ -393,6 +393,8 @@ class App:
                  "payload": str()
                  }
         parsed = self.parse_uri(uri)
+        if parsed is None:
+            print("None parsing this: ", parsed)
         if verb != NEXT and "_item" in parsed["filter"]:
             del(parsed["filter"]["_item"])
         items_per_page = 50
