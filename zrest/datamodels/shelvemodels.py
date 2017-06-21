@@ -558,26 +558,26 @@ class ShelveModel(RestfulBaseInterface):
         return conn_in.recv()
 
     def _drop(self, data, registries, shelf):
-        with shelve_open(shelf) as file:
-            for reg in registries:
-                try:
-                    old_data = self._fetch({reg}, shelf)
-                except KeyError:
-                    continue
-                else:
-                    if self._as_foreign:
-                        for item in self._as_foreign:
-                            children = item.children.fetch({item.field: reg})
-                            if item:
-                                continue
-                    if old_data != list():
-                        self._del_index(old_data, reg)
+        for reg in registries:
+            try:
+                old_data = self._fetch({reg}, shelf)
+            except KeyError:
+                continue
+            else:
+                if self._as_foreign:
+                    for item in self._as_foreign:
+                        children = item.children.fetch({item.field: reg})
+                        if item:
+                            continue
+                if old_data != list():
+                    self._del_index(old_data, reg)
+                    with shelve_open(shelf) as file:
                         del(file[str(reg)])
-                        with shelve_open(self._meta_path) as file:
-                            file["total"] -= 1
-                            ids = list(file["ids"])
-                            del(ids[ids.index(str(reg))])
-                            file["ids"] = ids
+                    with shelve_open(self._meta_path) as file:
+                        file["total"] -= 1
+                        ids = list(file["ids"])
+                        del(ids[ids.index(str(reg))])
+                        file["ids"] = ids
 
     def _filter(self, filter):
         while True:
